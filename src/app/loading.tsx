@@ -1,0 +1,1 @@
+export default function Loading() { return <main id="main" className="container loading-page" aria-label="Loading CampusMarket" aria-busy="true"><div className="skeleton skeleton-heading"/><div className="skeleton skeleton-hero"/><div className="product-grid">{Array.from({length:8},(_,i)=><div className="skeleton skeleton-card" key={i}/>)}</div></main>; }

@@ -1,0 +1,4 @@
+allowBuilds:
+  sharp: true
+  esbuild: true
+  '@tailwindcss/oxide': true
