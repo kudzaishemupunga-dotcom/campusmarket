@@ -22,7 +22,16 @@ Playwright starts a local development server with explicit demo mode. Set `PLAYW
 
 ## Execution record
 
-The final local validation record is filled in after commands are actually run. Until then, results are **not yet executed**. Live Supabase verification requires credentials and running infrastructure and must be reported separately from demo and unit tests.
+Validated locally on Windows (Node.js v24.22.1, pnpm 11.25.0):
+
+- `pnpm typecheck` (`tsc --noEmit`): Passed (0 errors).
+- `pnpm lint` (`eslint .`): Passed (0 errors, 0 warnings).
+- `pnpm test` (`vitest run`): Passed (8 test files, 115 unit and authorization tests).
+- `pnpm test:db` (`node supabase/tests/run.mjs`): Passed (20 embedded PostgreSQL / PGlite schema, trigger, RPC, rate-limit, and RLS scenarios).
+- `pnpm build` (`next build`): Passed (production App Router compilation, static/dynamic route generation, and proxy bundle).
+- `pnpm test:e2e` (`playwright test`): Passed (14 Chromium browser scenarios across 360px, 768px, 1366px, and 1920px viewports covering marketplace browse/search/filter/sort, saves, dark mode, seller pending-review lifecycle, admin user verification, report resolution, audit log, and 404 handling).
+
+Live hosted Supabase verification (GoTrue SMTP delivery, hosted PostgREST, and cloud Storage HTTP endpoints) was **not executed** because no external Supabase project credentials are configured in this local environment.
 
 ## Manual acceptance before launch
 

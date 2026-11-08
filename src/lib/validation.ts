@@ -1,15 +1,21 @@
 import { z } from 'zod';
 
+const emailPattern = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const phonePattern = /(?:\+?263|07[1378])(?:[\s-]?\d){7,9}\b/;
+export function containsContactInfo(value: string): boolean {
+  return emailPattern.test(value) || phonePattern.test(value);
+}
+
 export const uuidSchema = z.string().uuid('Choose a valid item.');
-export const displayNameSchema = z.string().trim().min(2, 'Use at least 2 characters.').max(60, 'Use 60 characters or fewer.').refine((value) => !/[<>\x00-\x1f]/.test(value), 'Use plain text for your display name.');
+export const displayNameSchema = z.string().trim().min(2, 'Use at least 2 characters.').max(60, 'Use 60 characters or fewer.').refine((value) => !/[<>\x00-\x1f]/.test(value), 'Use plain text for your display name.').refine((value) => !containsContactInfo(value), 'Do not include email addresses or phone numbers in your display name.');
 export const emailSchema = z.string().trim().email('Enter a valid email address.').max(254);
 export const passwordSchema = z.string().min(12, 'Use a password with at least 12 characters.').max(128, 'Use 128 characters or fewer.');
 export const loginSchema = z.object({ email: emailSchema, password: z.string().min(1, 'Enter your password.').max(128) });
 export const signupSchema = z.object({ email: emailSchema, password: passwordSchema, display_name: displayNameSchema });
 export const listingSchema = z.object({
   id: uuidSchema.optional(),
-  title: z.string().trim().min(4, 'Use at least 4 characters for the title.').max(100),
-  description: z.string().trim().min(20, 'Describe your item in at least 20 characters.').max(3000),
+  title: z.string().trim().min(4, 'Use at least 4 characters for the title.').max(100).refine((value) => !containsContactInfo(value), 'Keep email addresses and phone numbers out of listing titles.'),
+  description: z.string().trim().min(20, 'Describe your item in at least 20 characters.').max(3000).refine((value) => !containsContactInfo(value), 'Keep email addresses and phone numbers out of listing descriptions.'),
   price: z.string().trim().regex(/^(?:0|[1-9]\d{0,3})(?:\.\d{1,2})?$/, 'Enter a USD amount with at most two decimal places.').refine((value) => Number(value) >= 0.50 && Number(value) <= 5000, 'Price must be between $0.50 and $5,000.'),
   category_id: uuidSchema,
   condition: z.enum(['New', 'Like New', 'Good', 'Fair']),

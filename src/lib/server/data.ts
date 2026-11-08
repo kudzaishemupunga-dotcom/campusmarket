@@ -54,6 +54,7 @@ export async function getPageData(path: string, params: Record<string, string | 
       const category = result.categories.find((item) => item.slug === categorySlug);
       if (category) query = query.eq('category_id', category.id);
       else if (path.startsWith('/category/')) notFound();
+      else return { ...result, listingCount: 0, page: 1, pageSize };
     }
     // Quote as a PostgREST filter value, escaping grammar metacharacters and SQL wildcards.
     const search = (params.q || '').trim().slice(0, 100).replace(/[\\%_]/g, '\\$&').replace(/"/g, '\\"');

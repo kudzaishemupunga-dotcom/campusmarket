@@ -46,4 +46,26 @@ describe('private route guards before data access', () => {
     expect(data.profile).toBeNull();
     expect(mock.context).not.toHaveBeenCalled();
   });
+  it('denies cross-user listing edit route with NOT_FOUND before seller name or storage signing', async () => {
+    const rpc = vi.fn();
+    const storageFrom = vi.fn();
+    mock.from.mockImplementation((table: string) => {
+      if (table === 'categories') return { select: () => ({ order: async () => ({ data: [], error: null }) }) };
+      if (table === 'saved_listings') return { select: () => ({ eq: async () => ({ data: [], error: null }) }) };
+      const listingQuery = {
+        eq: () => listingQuery,
+        order: () => listingQuery,
+        range: async () => ({
+          data: [{ id: '30000000-0000-4000-8000-000000000001', seller_id: '20000000-0000-4000-8000-000000000099', status: 'active', price: '10.00', listing_images: [] }],
+          error: null,
+          count: 1,
+        }),
+      };
+      return { select: () => listingQuery };
+    });
+    mock.context.mockResolvedValue({ user: { id: profile.id }, profile, client: { from: mock.from, rpc, storage: { from: storageFrom } } });
+    await expect(getPageData('/listing/30000000-0000-4000-8000-000000000001/edit')).rejects.toThrow('NOT_FOUND');
+    expect(rpc).not.toHaveBeenCalled();
+    expect(storageFrom).not.toHaveBeenCalled();
+  });
 });

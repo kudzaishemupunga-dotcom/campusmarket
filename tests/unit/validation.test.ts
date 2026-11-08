@@ -26,9 +26,14 @@ describe('listing input boundaries', () => {
     }
   });
   it('defaults new submissions to pending review and accepts explicit drafts', () => {
-    const { status: _status, ...input } = listing;
+    const input = { title: listing.title, description: listing.description, price: listing.price, category_id: listing.category_id, condition: listing.condition };
     expect(listingSchema.parse(input).status).toBe('pending_review');
     expect(listingSchema.parse({ ...input, status: 'draft' }).status).toBe('draft');
+  });
+  it('blocks student email addresses and phone numbers in listing content', () => {
+    expect(listingSchema.safeParse({ ...listing, title: 'Calculator email student@school.ac.zw' }).success).toBe(false);
+    expect(listingSchema.safeParse({ ...listing, description: 'Clean textbook in great shape, message me on +263 77 123 4567.' }).success).toBe(false);
+    expect(listingSchema.safeParse({ ...listing, description: 'Clean textbook in great shape, call 0772 345 678 after class.' }).success).toBe(false);
   });
   it('rejects malformed identifiers, short descriptions and unrecognized conditions', () => {
     expect(listingSchema.safeParse({ ...listing, id: '../other-user' }).success).toBe(false);
@@ -55,6 +60,8 @@ describe('account and moderation validation', () => {
     expect(emailSchema.safeParse('not-an-email').success).toBe(false);
     expect(displayNameSchema.safeParse('<script>name</script>').success).toBe(false);
     expect(displayNameSchema.safeParse('A\u0000B').success).toBe(false);
+    expect(displayNameSchema.safeParse('Tariro student@example.com').success).toBe(false);
+    expect(displayNameSchema.safeParse('Tariro 0772 123 456').success).toBe(false);
   });
   it('limits moderation and report inputs to supported actions', () => {
     expect(listingModerationSchema.safeParse({ id: categoryId, status: 'active' }).success).toBe(true);

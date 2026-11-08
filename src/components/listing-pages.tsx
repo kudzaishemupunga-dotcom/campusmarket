@@ -4,52 +4,373 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronRight, Clock3, Flag, Heart, ImagePlus, Pencil, ShieldCheck, Tag, Trash2, X } from 'lucide-react';
-import { toast } from 'sonner';
 import type { Condition, Listing } from '@/lib/types';
 import { MAX_IMAGES, listingSchema, validateImageHeader } from '@/lib/validation';
 import { Dialog, EmptyState, money, PageHeading, ProductCard, Status } from './ui';
 import { useMarket } from './market-app';
 
-export function ListingDetail({id}:{id:string}){
- const {data,mutate,busy}=useMarket();const listing=data.listings.find(l=>l.id===id);const [index,setIndex]=useState(0);const [report,setReport]=useState(false);
- if(!listing)return <EmptyState title="This find is no longer available." text="It may have been removed, or is waiting for review." href="/explore"/>;
- const category=data.categories.find(c=>c.id===listing.category_id);const own=listing.seller_id===data.profile?.id;const saved=data.savedIds.includes(id);
- const related=data.listings.filter(l=>l.id!==id&&l.status==='active'&&l.category_id===listing.category_id).slice(0,4);
- return <><nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/explore">Marketplace</Link><ChevronRight size={14}/><Link href={`/category/${category?.slug}`}>{category?.name}</Link><ChevronRight size={14}/><span>{listing.title}</span></nav><div className="detail-grid"><div className="gallery"><div className="gallery-main"><img src={listing.images[index]?.url||'/products/notebooks.svg'} alt={listing.title} width="720" height="600"/><span className="gallery-condition"><Status value={listing.condition}/></span></div>{listing.images.length>1&&<div className="gallery-thumbs">{listing.images.map((image,i)=><button className={index===i?'selected':''} key={image.id} aria-label={`View image ${i+1}`} aria-pressed={index===i} onClick={()=>setIndex(i)}><img src={image.url} alt={`${listing.title}, view ${i+1}`} width="90" height="70"/></button>)}</div>}</div><div className="detail-info"><div className="detail-category">{category?.name}<Status value={listing.status}/></div><h1>{listing.title}</h1><div className="detail-price">{money(listing.price)}<span>USD</span></div><div className="detail-meta"><span><Tag size={16}/>{listing.condition}</span><span><Clock3 size={16}/>{new Date(listing.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div><div className="detail-description"><h2>A little about this find</h2><p>{listing.description}</p></div><div className="seller-panel"><span className="avatar">{listing.seller_name.split(' ').map(s=>s[0]).slice(0,2).join('')}</span><div><strong>{listing.seller_name}</strong><span><ShieldCheck size={13}/>School-verified member</span></div><ShieldCheck size={22} className="teal"/></div><div className="exchange-note"><ShieldCheck size={21}/><div><strong>Good finds. Safe exchanges.</strong><p>Exchange arrangements are awaiting school approval. No payment or direct contact is available here.</p><Link href="/rules#exchanges">Read the exchange guidance<ArrowRight size={14}/></Link></div></div><div className="detail-actions">{own?<ListingActions listing={listing}/>:<button className="button primary wide" disabled={busy||listing.status!=='active'} onClick={()=>void mutate('toggle_saved',{listing_id:id})}><Heart size={18} fill={saved?'currentColor':'none'}/>{saved?'Saved to your collection':'Save this find'}</button>}</div><button className="report-link" onClick={()=>setReport(true)}><Flag size={14}/>Something not right? Report this listing</button></div></div>{related.length>0&&<section className="related-section"><div className="section-heading"><h2>A few more you might like</h2><Link href={`/category/${category?.slug}`}>View category<ArrowRight size={16}/></Link></div><div className="product-grid">{related.map(l=><ProductCard key={l.id} listing={l} categories={data.categories} saved={data.savedIds.includes(l.id)} onSave={()=>void mutate('toggle_saved',{listing_id:l.id})}/>)}</div></section>}{report&&<Dialog title="Report this listing" onClose={()=>setReport(false)}><p className="muted">Your report is only visible to school administrators.</p><form className="stack-form" onSubmit={async e=>{e.preventDefault();const values=new FormData(e.currentTarget);const result=await mutate('report_listing',{listing_id:id,reason:values.get('reason'),details:values.get('details')});if(result.ok)setReport(false);}}><label>Reason<select name="reason" required><option value="">Choose a reason</option>{['Prohibited item','Misleading listing','Personal information','Other concern'].map(r=><option key={r}>{r}</option>)}</select></label><label>Details<textarea name="details" rows={4} minLength={10} maxLength={1000} required placeholder="Help the school understand your concern."/></label><div className="button-row"><button className="button primary" disabled={busy}>Submit report</button><button type="button" className="button secondary" onClick={()=>setReport(false)}>Cancel</button></div></form></Dialog>}</>;
+export function ListingDetail({ id }: { id: string }) {
+  const { data, mutate, busy } = useMarket();
+  const listing = data.listings.find((l) => l.id === id);
+  const [index, setIndex] = useState(0);
+  const [report, setReport] = useState(false);
+  if (!listing) return <EmptyState title="This find is no longer available." text="It may have been removed, or is waiting for review." href="/explore" />;
+  const category = data.categories.find((c) => c.id === listing.category_id);
+  const own = listing.seller_id === data.profile?.id;
+  const saved = data.savedIds.includes(id);
+  const related = data.listings.filter((l) => l.id !== id && l.status === 'active' && l.category_id === listing.category_id).slice(0, 4);
+
+  return (
+    <>
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <Link href="/explore">Marketplace</Link><ChevronRight size={14} />
+        <Link href={`/category/${category?.slug}`}>{category?.name}</Link><ChevronRight size={14} />
+        <span>{listing.title}</span>
+      </nav>
+      <div className="detail-grid">
+        <div className="gallery">
+          <div className="gallery-main">
+            <img src={listing.images[index]?.url || '/products/notebooks.svg'} alt={listing.title} width="720" height="600" />
+            <span className="gallery-condition"><Status value={listing.condition} /></span>
+          </div>
+          {listing.images.length > 1 && (
+            <div className="gallery-thumbs">
+              {listing.images.map((image, i) => (
+                <button className={index === i ? 'selected' : ''} key={image.id} aria-label={`View image ${i + 1}`} aria-pressed={index === i} onClick={() => setIndex(i)}>
+                  <img src={image.url} alt={`${listing.title}, view ${i + 1}`} width="90" height="70" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="detail-info">
+          <div className="detail-category">{category?.name}<Status value={listing.status} /></div>
+          <h1>{listing.title}</h1>
+          <div className="detail-price">{money(listing.price)}<span>USD</span></div>
+          <div className="detail-meta">
+            <span><Tag size={16} />{listing.condition}</span>
+            <span><Clock3 size={16} />{new Date(listing.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          </div>
+          <div className="detail-description">
+            <h2>A little about this find</h2>
+            <p>{listing.description}</p>
+          </div>
+          <div className="seller-panel">
+            <span className="avatar">{listing.seller_name.split(' ').map((s) => s[0]).slice(0, 2).join('')}</span>
+            <div><strong>{listing.seller_name}</strong><span><ShieldCheck size={13} />School-verified member</span></div>
+            <ShieldCheck size={22} className="teal" />
+          </div>
+          <div className="exchange-note">
+            <ShieldCheck size={21} />
+            <div>
+              <strong>Good finds. Safe exchanges.</strong>
+              <p>Exchange arrangements are awaiting school approval. No payment or direct contact is available here.</p>
+              <Link href="/rules#exchanges">Read the exchange guidance<ArrowRight size={14} /></Link>
+            </div>
+          </div>
+          <div className="detail-actions">
+            {own ? (
+              <ListingActions listing={listing} />
+            ) : (
+              <button className="button primary wide" disabled={busy || listing.status !== 'active'} onClick={() => void mutate('toggle_saved', { listing_id: id })}>
+                <Heart size={18} fill={saved ? 'currentColor' : 'none'} />
+                {saved ? 'Saved to your collection' : 'Save this find'}
+              </button>
+            )}
+          </div>
+          <button className="report-link" onClick={() => setReport(true)}><Flag size={14} />Something not right? Report this listing</button>
+        </div>
+      </div>
+      {related.length > 0 && (
+        <section className="related-section">
+          <div className="section-heading">
+            <h2>A few more you might like</h2>
+            <Link href={`/category/${category?.slug}`}>View category<ArrowRight size={16} /></Link>
+          </div>
+          <div className="product-grid">
+            {related.map((l) => <ProductCard key={l.id} listing={l} categories={data.categories} saved={data.savedIds.includes(l.id)} onSave={() => void mutate('toggle_saved', { listing_id: l.id })} />)}
+          </div>
+        </section>
+      )}
+      {report && (
+        <Dialog title="Report this listing" onClose={() => setReport(false)}>
+          <p className="muted">Your report is only visible to school administrators.</p>
+          <form className="stack-form" onSubmit={async (e) => {
+            e.preventDefault();
+            const values = new FormData(e.currentTarget);
+            const result = await mutate('report_listing', { listing_id: id, reason: values.get('reason'), details: values.get('details') });
+            if (result.ok) setReport(false);
+          }}>
+            <label>
+              Reason
+              <select name="reason" required>
+                <option value="">Choose a reason</option>
+                {['Prohibited item', 'Misleading listing', 'Personal information', 'Other concern'].map((r) => <option key={r}>{r}</option>)}
+              </select>
+            </label>
+            <label>
+              Details
+              <textarea name="details" rows={4} minLength={10} maxLength={1000} required placeholder="Help the school understand your concern." />
+            </label>
+            <div className="button-row">
+              <button className="button primary" disabled={busy}>Submit report</button>
+              <button type="button" className="button secondary" onClick={() => setReport(false)}>Cancel</button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </>
+  );
 }
-export function ListingActions({listing}:{listing:Listing}){
- const {mutate,busy}=useMarket();const [confirm,setConfirm]=useState(false);const router=useRouter();
- return <><div className="listing-actions"><Link className="button secondary small" href={`/listing/${listing.id}/edit`}><Pencil size={14}/>Edit</Link>{listing.status==='active'&&<button className="button secondary small" disabled={busy} onClick={()=>void mutate('mark_sold',{id:listing.id})}><Check size={15}/>Mark as sold</button>}<button className="button danger-quiet small" onClick={()=>setConfirm(true)}><Trash2 size={14}/>Delete</button></div>{confirm&&<Dialog title="Delete this listing?" onClose={()=>setConfirm(false)}><p>“{listing.title}” will be removed from your listings. This cannot be undone.</p><div className="button-row"><button className="button danger" disabled={busy} onClick={async()=>{const result=await mutate('delete_listing',{id:listing.id});if(result.ok){setConfirm(false);router.push('/dashboard/listings');}}}>Delete listing</button><button className="button secondary" onClick={()=>setConfirm(false)}>Keep listing</button></div></Dialog>}</>;
+
+export function ListingActions({ listing }: { listing: Listing }) {
+  const { mutate, busy } = useMarket();
+  const [confirm, setConfirm] = useState(false);
+  const router = useRouter();
+  const canEdit = !['sold', 'removed'].includes(listing.status);
+
+  return (
+    <>
+      <div className="listing-actions">
+        {canEdit && <Link className="button secondary small" href={`/listing/${listing.id}/edit`}><Pencil size={14} />Edit</Link>}
+        {listing.status === 'active' && (
+          <button className="button secondary small" disabled={busy} onClick={() => void mutate('mark_sold', { id: listing.id })}>
+            <Check size={15} />Mark as sold
+          </button>
+        )}
+        <button className="button danger-quiet small" onClick={() => setConfirm(true)}><Trash2 size={14} />Delete</button>
+      </div>
+      {confirm && (
+        <Dialog title="Delete this listing?" onClose={() => setConfirm(false)}>
+          <p>“{listing.title}” will be removed from your listings. This cannot be undone.</p>
+          <div className="button-row">
+            <button className="button danger" disabled={busy} onClick={async () => {
+              const result = await mutate('delete_listing', { id: listing.id });
+              if (result.ok) {
+                setConfirm(false);
+                router.push('/dashboard/listings');
+              }
+            }}>Delete listing</button>
+            <button className="button secondary" onClick={() => setConfirm(false)}>Keep listing</button>
+          </div>
+        </Dialog>
+      )}
+    </>
+  );
 }
-type ListingFields={title:string;description:string;price:string;category_id:string;condition:Condition};
-async function demoImage(file:File):Promise<string>{const bitmap=await createImageBitmap(file);const scale=Math.min(1,1000/Math.max(bitmap.width,bitmap.height));const canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d')?.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();return canvas.toDataURL('image/webp',.8);}
-export function ListingForm({id}:{id?:string}){
- const {data,mutate,setData}=useMarket();const router=useRouter();const existing=data.listings.find(l=>l.id===id);const [files,setFiles]=useState<File[]>([]);const [submitting,setSubmitting]=useState(false);const [error,setError]=useState('');const [savedId,setSavedId]=useState(id);const [removedImages,setRemovedImages]=useState<string[]>([]);
- const {register,handleSubmit,formState:{errors}}=useForm<ListingFields>({defaultValues:{title:existing?.title||'',description:existing?.description||'',price:existing?.price||'',category_id:existing?.category_id||'',condition:existing?.condition||'Good'}});
- if(id&&(!existing||existing.seller_id!==data.profile?.id))return <EmptyState title="This listing isn’t yours to edit." text="Open your dashboard to manage your own items." href="/dashboard/listings" action="My listings"/>;
- async function submit(values:ListingFields){
-  setSubmitting(true);setError('');
-  try{
-   const parsed=listingSchema.safeParse({...values,id:savedId,status:'pending_review'});if(!parsed.success)throw new Error(parsed.error.issues[0].message);
-   const currentImages=(existing?.images||[]).filter(image=>!removedImages.includes(image.id));
-   if(currentImages.length+files.length>MAX_IMAGES)throw new Error('Choose no more than five images in total.');
-   for(const file of files)validateImageHeader(new Uint8Array(await file.slice(0,12).arrayBuffer()),file.size,file.type);
-   const staging=files.length>0||removedImages.length>0;
-   const result=await mutate('save_listing',{...values,id:savedId,status:staging?'draft':'pending_review'});if(!result.ok)throw new Error(result.message);
-   const listingId=result.id||savedId;if(!listingId)throw new Error('Listing ID missing. Please refresh your dashboard.');setSavedId(listingId);
-   if(staging){
-    if(data.mode==='demo'){
-     const images=await Promise.all(files.map(async(file,i)=>({id:crypto.randomUUID(),listing_id:listingId,storage_path:'demo-browser-only',url:await demoImage(file),display_order:currentImages.length+i})));
-     setData(previous=>({...previous,listings:previous.listings.map(l=>l.id===listingId?{...l,images:[...currentImages,...images]}:l)}));
-    }else{
-     for(const imageId of removedImages){const response=await fetch('/api/upload',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({listingId,imageId})});const body=await response.json();if(!response.ok)throw new Error(body.message||body.error||'Could not remove an image. Your listing is saved for review.');}
-     if(files.length){const form=new FormData();form.set('id',listingId);files.forEach(file=>form.append('images',file));const response=await fetch('/api/upload',{method:'POST',body:form});const body=await response.json();if(!response.ok)throw new Error(body.message||body.error||'Images could not be uploaded. Your draft is saved.');}
+
+type ListingFields = { title: string; description: string; price: string; category_id: string; condition: Condition };
+
+async function demoImage(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1000 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas.toDataURL('image/webp', 0.8);
+}
+
+export function ListingForm({ id }: { id?: string }) {
+  const { data, mutate, setData } = useMarket();
+  const router = useRouter();
+  const existing = data.listings.find((l) => l.id === id);
+  const [files, setFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [savedId, setSavedId] = useState(id);
+  const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const { register, handleSubmit, formState: { errors } } = useForm<ListingFields>({
+    defaultValues: {
+      title: existing?.title || '',
+      description: existing?.description || '',
+      price: existing?.price || '',
+      category_id: existing?.category_id || '',
+      condition: existing?.condition || 'Good',
+    },
+  });
+
+  if (id && (!existing || existing.seller_id !== data.profile?.id)) {
+    return <EmptyState title="This listing isn’t yours to edit." text="Open your dashboard to manage your own items." href="/dashboard/listings" action="My listings" />;
+  }
+  if (existing && ['sold', 'removed'].includes(existing.status)) {
+    return (
+      <>
+        <PageHeading eyebrow="LISTING CLOSED" title="This listing can no longer be edited." description="Sold and removed items are closed to further changes." />
+        <EmptyState title="Create a new listing instead." text="Return to your listings to view its status or remove it from your dashboard." href="/dashboard/listings" action="My listings" />
+      </>
+    );
+  }
+
+  async function submit(values: ListingFields, targetStatus: 'draft' | 'pending_review' = 'pending_review') {
+    setSubmitting(true);
+    setError('');
+    try {
+      const parsed = listingSchema.safeParse({ ...values, id: savedId, status: targetStatus });
+      if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+      const currentImages = (existing?.images || []).filter((image) => !removedImages.includes(image.id));
+      if (currentImages.length + files.length > MAX_IMAGES) throw new Error('Choose no more than five images in total.');
+      for (const file of files) validateImageHeader(new Uint8Array(await file.slice(0, 12).arrayBuffer()), file.size, file.type);
+      const staging = files.length > 0 || removedImages.length > 0;
+      const result = await mutate('save_listing', { ...values, id: savedId, status: staging ? 'draft' : targetStatus });
+      if (!result.ok) throw new Error(result.message);
+      const listingId = result.id || savedId;
+      if (!listingId) throw new Error('Listing ID missing. Please refresh your dashboard.');
+      setSavedId(listingId);
+      if (staging) {
+        if (data.mode === 'demo') {
+          const images = await Promise.all(files.map(async (file, i) => ({
+            id: crypto.randomUUID(),
+            listing_id: listingId,
+            storage_path: 'demo-browser-only',
+            url: await demoImage(file),
+            display_order: currentImages.length + i,
+          })));
+          setData((previous) => ({ ...previous, listings: previous.listings.map((l) => l.id === listingId ? { ...l, images: [...currentImages, ...images] } : l) }));
+        } else {
+          for (const imageId of removedImages) {
+            const response = await fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ listingId, imageId }) });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message || body.error || 'Could not remove an image. Your listing is saved as a draft.');
+          }
+          if (files.length) {
+            const form = new FormData();
+            form.set('id', listingId);
+            files.forEach((file) => form.append('images', file));
+            const response = await fetch('/api/upload', { method: 'POST', body: form });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message || body.error || 'Images could not be uploaded. Your draft is saved.');
+          }
+        }
+        if (targetStatus === 'pending_review') {
+          const published = await mutate('save_listing', { ...values, id: listingId, status: 'pending_review' });
+          if (!published.ok) throw new Error(published.message);
+        }
+      }
+      router.push('/dashboard/listings');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save your listing. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-    const published=await mutate('save_listing',{...values,id:listingId,status:'pending_review'});if(!published.ok)throw new Error(published.message);
-   }
-   router.push('/dashboard/listings');
-  }catch(error){setError(error instanceof Error?error.message:'Unable to save your listing. Please try again.');}finally{setSubmitting(false);}
- }
- return <><Link href="/dashboard/listings" className="back-link"><ArrowLeft size={16}/>Back to my listings</Link><PageHeading eyebrow="A SECOND LIFE STARTS HERE" title={id?'Make your listing shine.':'Someone’s next great find.'} description={id?'Keep the details accurate. Changes will go back to your school for review.':'A few details, a couple of photos, and your pre-loved item is ready for its next chapter.'}/><div className="form-layout"><form className="panel listing-form" onSubmit={handleSubmit(submit)} noValidate><h2>The essentials</h2><p className="muted">Tell your school community what you’re passing on.</p><div className="stack-form"><label>Title<input {...register('title',{required:'Add a title.',minLength:{value:4,message:'Use at least 4 characters.'},maxLength:100})} placeholder="e.g. Scientific calculator in great condition" aria-invalid={!!errors.title}/>{errors.title&&<span className="field-error">{errors.title.message}</span>}</label><label>Description<textarea {...register('description',{required:'Describe your item.',minLength:{value:20,message:'Add at least 20 characters.'},maxLength:3000})} rows={5} placeholder="What should the next owner know? Mention its condition, what’s included, and any signs of wear." aria-invalid={!!errors.description}/>{errors.description&&<span className="field-error">{errors.description.message}</span>}</label><div className="form-two"><label>Category<select {...register('category_id',{required:'Choose a category.'})} aria-invalid={!!errors.category_id}><option value="">Choose a category</option>{data.categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>{errors.category_id&&<span className="field-error">{errors.category_id.message}</span>}</label><label>Condition<select {...register('condition')}>{['New','Like New','Good','Fair'].map(c=><option key={c}>{c}</option>)}</select></label></div><label>Price (USD)<div className="price-input"><span>$</span><input aria-label="Price" {...register('price',{required:'Add a price.',pattern:{value:/^\d+(?:\.\d{1,2})?$/,message:'Enter a valid amount with up to two decimal places.'}})} inputMode="decimal" placeholder="0.00" aria-invalid={!!errors.price}/><span>USD</span></div>{errors.price&&<span className="field-error">{errors.price.message}</span>}<small>Between $0.50 and $5,000. There are no payments in the app.</small></label><div className="form-divider"/><h2>Let it speak for itself</h2><p className="muted">Up to 5 photos. JPEG, PNG or WebP, maximum 5 MB each.</p><label className="upload-zone"><ImagePlus size={29}/><strong>Add your item photos</strong><span>Choose files from your device</span><input type="file" aria-label="Item photos" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{setFiles(Array.from(e.target.files||[]));setError('');}}/></label>{existing?.images.length? <div className="existing-images">{existing.images.filter(image=>!removedImages.includes(image.id)).map(image=><div key={image.id}><img src={image.url} alt="Current item photo" width="100" height="80"/><button type="button" className="icon-button" aria-label="Remove current image" onClick={()=>setRemovedImages([...removedImages,image.id])}><X size={14}/></button></div>)}</div>:null}{files.length>0&&<ul className="selected-files">{files.map((file,i)=><li key={`${file.name}-${i}`}><CheckCircle2 size={15}/>{file.name}<button type="button" aria-label={`Remove ${file.name}`} className="icon-button" onClick={()=>setFiles(files.filter((_,j)=>i!==j))}><X size={14}/></button></li>)}</ul>}{error&&<div className="form-error" role="alert">{error}{savedId&&<p>Your listing has been saved. You can finish it from <Link href={`/listing/${savedId}/edit`}>My Listings</Link>.</p>}</div>}<div className="form-footer"><Link className="button secondary" href="/dashboard/listings">Cancel</Link><button className="button primary" disabled={submitting}>{submitting?'Saving your listing…':id?'Save & submit for review':'Submit for review'}<ArrowRight size={16}/></button></div></div></form><aside className="form-aside"><div className="aside-illustration"><img src="/products/backpack.svg" alt="An illustrated school backpack" width="480" height="350"/></div><div className="panel selling-tips"><ShieldCheck size={26}/><h3>A little care goes a long way.</h3><ul><li>Use clear photos of your own item.</li><li>Be honest about its condition.</li><li>Keep names, contact details, and school documents out of photos.</li><li>Only list school-appropriate goods.</li></ul><div className="aside-note"><Clock3 size={18}/><p>Your school reviews every listing before it appears in the marketplace.</p></div><Link href="/rules">Read our school rules<ArrowUpIcon/></Link></div></aside></div></>;
+  }
+
+  return (
+    <>
+      <Link href="/dashboard/listings" className="back-link"><ArrowLeft size={16} />Back to my listings</Link>
+      <PageHeading
+        eyebrow="A SECOND LIFE STARTS HERE"
+        title={id ? 'Make your listing shine.' : 'Someone’s next great find.'}
+        description={id ? 'Keep the details accurate. Changes will go back to your school for review.' : 'A few details, a couple of photos, and your pre-loved item is ready for its next chapter.'}
+      />
+      <div className="form-layout">
+        <form className="panel listing-form" onSubmit={handleSubmit((values) => submit(values, 'pending_review'))} noValidate>
+          <h2>The essentials</h2>
+          <p className="muted">Tell your school community what you’re passing on.</p>
+          <div className="stack-form">
+            <label>
+              Title
+              <input {...register('title', { required: 'Add a title.', minLength: { value: 4, message: 'Use at least 4 characters.' }, maxLength: 100 })} placeholder="e.g. Scientific calculator in great condition" aria-invalid={!!errors.title} />
+              {errors.title && <span className="field-error">{errors.title.message}</span>}
+            </label>
+            <label>
+              Description
+              <textarea {...register('description', { required: 'Describe your item.', minLength: { value: 20, message: 'Add at least 20 characters.' }, maxLength: 3000 })} rows={5} placeholder="What should the next owner know? Mention its condition, what’s included, and any signs of wear." aria-invalid={!!errors.description} />
+              {errors.description && <span className="field-error">{errors.description.message}</span>}
+            </label>
+            <div className="form-two">
+              <label>
+                Category
+                <select {...register('category_id', { required: 'Choose a category.' })} aria-invalid={!!errors.category_id}>
+                  <option value="">Choose a category</option>
+                  {data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                {errors.category_id && <span className="field-error">{errors.category_id.message}</span>}
+              </label>
+              <label>
+                Condition
+                <select {...register('condition')}>
+                  {['New', 'Like New', 'Good', 'Fair'].map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </label>
+            </div>
+            <label>
+              Price (USD)
+              <div className="price-input">
+                <span>$</span>
+                <input aria-label="Price" {...register('price', { required: 'Add a price.', pattern: { value: /^\d+(?:\.\d{1,2})?$/, message: 'Enter a valid amount with up to two decimal places.' } })} inputMode="decimal" placeholder="0.00" aria-invalid={!!errors.price} />
+                <span>USD</span>
+              </div>
+              {errors.price && <span className="field-error">{errors.price.message}</span>}
+              <small>Between $0.50 and $5,000. There are no payments in the app.</small>
+            </label>
+            <div className="form-divider" />
+            <h2>Let it speak for itself</h2>
+            <p className="muted">Up to 5 photos. JPEG, PNG or WebP, maximum 5 MB each.</p>
+            <label className="upload-zone">
+              <ImagePlus size={29} />
+              <strong>Add your item photos</strong>
+              <span>Choose files from your device</span>
+              <input type="file" aria-label="Item photos" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => { setFiles(Array.from(e.target.files || [])); setError(''); }} />
+            </label>
+            {existing?.images.length ? (
+              <div className="existing-images">
+                {existing.images.filter((image) => !removedImages.includes(image.id)).map((image) => (
+                  <div key={image.id}>
+                    <img src={image.url} alt="Current item photo" width="100" height="80" />
+                    <button type="button" className="icon-button" aria-label="Remove current image" onClick={() => setRemovedImages([...removedImages, image.id])}><X size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {files.length > 0 && (
+              <ul className="selected-files">
+                {files.map((file, i) => (
+                  <li key={`${file.name}-${i}`}>
+                    <CheckCircle2 size={15} />{file.name}
+                    <button type="button" aria-label={`Remove ${file.name}`} className="icon-button" onClick={() => setFiles(files.filter((_, j) => i !== j))}><X size={14} /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {error && (
+              <div className="form-error" role="alert">
+                {error}
+                {savedId && <p>Your listing has been saved. You can finish it from <Link href={`/listing/${savedId}/edit`}>My Listings</Link>.</p>}
+              </div>
+            )}
+            <div className="form-footer">
+              <Link className="button secondary" href="/dashboard/listings">Cancel</Link>
+              <button type="button" className="button secondary" disabled={submitting} onClick={handleSubmit((values) => submit(values, 'draft'))}>
+                Save draft
+              </button>
+              <button type="submit" className="button primary" disabled={submitting}>
+                {submitting ? 'Saving your listing…' : id ? 'Save & submit for review' : 'Submit for review'}<ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        </form>
+        <aside className="form-aside">
+          <div className="aside-illustration"><img src="/products/backpack.svg" alt="An illustrated school backpack" width="480" height="350" /></div>
+          <div className="panel selling-tips">
+            <ShieldCheck size={26} />
+            <h3>A little care goes a long way.</h3>
+            <ul>
+              <li>Use clear photos of your own item.</li>
+              <li>Be honest about its condition.</li>
+              <li>Keep names, contact details, and school documents out of photos.</li>
+              <li>Only list school-appropriate goods.</li>
+            </ul>
+            <div className="aside-note"><Clock3 size={18} /><p>Your school reviews every listing before it appears in the marketplace.</p></div>
+            <Link href="/rules">Read our school rules<ArrowUpIcon /></Link>
+          </div>
+        </aside>
+      </div>
+    </>
+  );
 }
-function ArrowUpIcon(){return <ArrowRight size={14}/>;}
+
+function ArrowUpIcon() {
+  return <ArrowRight size={14} />;
+}

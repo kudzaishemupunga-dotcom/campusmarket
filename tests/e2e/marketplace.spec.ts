@@ -106,6 +106,67 @@ for (const width of [360, 768, 1366, 1920]) {
   });
 }
 
+test('seller listing lifecycle requires admin review before publication, then supports mark sold and delete', async ({ page }) => {
+  await page.goto('/sell');
+  await page.getByLabel('Title').fill('Form 4 Chemistry Study Guide');
+  await page.getByLabel('Description').fill('Well-kept Form 4 chemistry revision guide with clean pages and worked examples.');
+  await page.getByLabel('Category').selectOption({ label: 'Textbooks' });
+  await page.getByLabel('Condition').selectOption('Like New');
+  await page.getByLabel('Price', { exact: true }).fill('11.50');
+  await page.getByRole('button', { name: 'Submit for review' }).click();
+
+  await expect(page).toHaveURL(/\/dashboard\/listings$/);
+  await expect(page.getByRole('link', { name: 'Form 4 Chemistry Study Guide' })).toBeVisible();
+
+  // Newly submitted listing must not appear on /explore before school moderation.
+  await page.goto('/explore?q=Form+4+Chemistry+Study+Guide');
+  await expect(page.getByTestId('listing-card')).toHaveCount(0);
+
+  // Admin approves the pending listing.
+  await page.goto('/admin/listings');
+  const adminRow = page.locator('.management-row', { hasText: 'Form 4 Chemistry Study Guide' });
+  await adminRow.getByRole('button', { name: 'Approve' }).click();
+  await page.getByRole('button', { name: 'Confirm decision' }).click();
+
+  // Approved listing now appears on /explore.
+  await page.goto('/explore?q=Form+4+Chemistry+Study+Guide');
+  await expect(page.getByTestId('listing-card')).toHaveCount(1);
+
+  // Seller marks active listing as sold, then deletes it.
+  await page.goto('/dashboard/listings');
+  const sellerRow = page.locator('.management-row', { hasText: 'Form 4 Chemistry Study Guide' });
+  await sellerRow.getByRole('button', { name: 'Mark as sold' }).click();
+  await expect(sellerRow.locator('.status')).toHaveText('sold');
+  await expect(sellerRow.getByRole('link', { name: 'Edit' })).toHaveCount(0);
+
+  await sellerRow.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: 'Delete listing' }).click();
+  await expect(page.locator('.management-row', { hasText: 'Form 4 Chemistry Study Guide' })).toHaveCount(0);
+});
+
+test('admin user verification, reporting and audit log work end to end', async ({ page }) => {
+  await page.goto('/listing/30000000-0000-4000-8000-000000000001');
+  await page.getByRole('button', { name: /Report this listing/i }).click();
+  await page.getByLabel('Reason').selectOption('Misleading listing');
+  await page.getByLabel('Details').fill('Please double-check the calculator battery compartment before approval.');
+  await page.getByRole('button', { name: 'Submit report' }).click();
+
+  await page.goto('/admin/users');
+  const pendingRow = page.locator('.user-row', { hasText: 'Kuda N.' });
+  await pendingRow.getByRole('button', { name: 'Approve' }).click();
+  await page.getByRole('button', { name: 'Confirm decision' }).click();
+  await expect(pendingRow.locator('.status')).toHaveText('approved');
+
+  await page.goto('/admin/reports');
+  const reportCard = page.locator('.report-card', { hasText: 'calculator battery compartment' });
+  await reportCard.getByRole('button', { name: 'Resolve report' }).click();
+  await page.getByRole('button', { name: 'Confirm decision' }).click();
+  await expect(reportCard.locator('.status')).toHaveText('resolved');
+
+  await page.goto('/admin');
+  await expect(page.locator('.audit-list > div')).toHaveCount(2);
+});
+
 test('unknown routes show the custom not-found state', async ({ page }) => {
   await page.goto('/not-a-campusmarket-route');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();

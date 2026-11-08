@@ -1,4 +1,10 @@
-import { defineConfig, devices } from '@playwright/test';
+import { existsSync } from 'node:fs';
+import { chromium, defineConfig, devices } from '@playwright/test';
+
+const useSystemChrome = (() => {
+  try { return !existsSync(chromium.executablePath()); }
+  catch { return true; }
+})();
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -12,7 +18,10 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [{
+    name: 'chromium',
+    use: { ...devices['Desktop Chrome'], ...(useSystemChrome ? { channel: 'chrome' } : {}) },
+  }],
   webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
     command: 'node node_modules/next/dist/bin/next dev --hostname 127.0.0.1',
     url: 'http://127.0.0.1:3000',

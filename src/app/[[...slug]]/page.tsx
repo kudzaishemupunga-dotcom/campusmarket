@@ -6,7 +6,7 @@ const known = ['/', '/explore', '/login', '/signup', '/forgot-password', '/reset
 export default async function Page({ params, searchParams }: { params: Promise<{ slug?: string[] }>; searchParams: Promise<Record<string,string|string[]|undefined>> }) {
  const { slug } = await params;
  const path = '/' + (slug?.join('/') ?? '');
- if (!known.includes(path) && !/^\/category\/[a-z-]+$/.test(path) && !/^\/listing\/[a-zA-Z0-9-]+(?:\/edit)?$/.test(path)) notFound();
+ if (!known.includes(path) && !/^\/category\/[a-z0-9-]+$/.test(path) && !/^\/listing\/[a-zA-Z0-9-]+(?:\/edit)?$/.test(path)) notFound();
  const query = Object.fromEntries(Object.entries(await searchParams).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
  const data = await getPageData(path, query);
  if (path.startsWith('/category/') && !data.categories.some(c => c.slug === slug?.[1])) notFound();

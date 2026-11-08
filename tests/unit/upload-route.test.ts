@@ -10,10 +10,11 @@ vi.mock('@/lib/server/config', () => ({ isDemoMode: mock.demo, isSupabaseConfigu
 vi.mock('@/lib/server/auth', () => ({ requireMember: mock.member }));
 vi.mock('@/lib/server/rate-limit', () => ({ checkRateLimit: mock.limit }));
 vi.mock('@/lib/server/supabase', () => ({ storageSupabase: mock.storage }));
-import { POST } from '@/app/api/upload/route';
+import { DELETE, POST } from '@/app/api/upload/route';
 
 const userId = '20000000-0000-4000-8000-000000000001';
 const listingId = '30000000-0000-4000-8000-000000000001';
+const imageId = '40000000-0000-4000-8000-000000000001';
 
 function request(files: File[], origin = 'https://campus.example') {
   const form = new FormData();
@@ -94,5 +95,50 @@ describe('verified upload endpoint', () => {
     mock.from.mockImplementation((table: string) => table === 'listing_images' ? { insert: () => ({ select: async () => ({ data: null, error: new Error('concurrent count limit') }) }) } : listingQuery());
     expect((await POST(request([new File([new Uint8Array(input)], 'photo.png', { type: 'image/png' })]))).status).toBe(400);
     expect(mock.remove).toHaveBeenCalledWith([mock.upload.mock.calls[0][0]]);
+  });
+});
+
+describe('verified image delete endpoint', () => {
+  function deleteRequest(body: unknown = { listingId, imageId }, origin = 'https://campus.example') {
+    return new NextRequest('https://campus.example/api/upload', {
+      method: 'DELETE',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('rejects cross-origin and unapproved DELETE requests before storage access', async () => {
+    expect((await DELETE(deleteRequest(undefined, 'https://attacker.example'))).status).toBe(403);
+    expect(mock.member).not.toHaveBeenCalled();
+    mock.member.mockRejectedValue(new PermissionError('Your school must approve your account first.'));
+    expect((await DELETE(deleteRequest())).status).toBe(403);
+    expect(mock.storage).not.toHaveBeenCalled();
+  });
+
+  it('denies cross-user image deletion and sold/removed listing mutations', async () => {
+    mock.from.mockReturnValue(listingQuery('20000000-0000-4000-8000-000000000002'));
+    expect((await DELETE(deleteRequest())).status).toBe(403);
+    const soldChain = { select: vi.fn(), eq: vi.fn(), single: vi.fn(async () => ({ data: { seller_id: userId, status: 'sold' }, error: null })) };
+    soldChain.select.mockReturnValue(soldChain);
+    soldChain.eq.mockReturnValue(soldChain);
+    mock.from.mockReturnValue(soldChain);
+    expect((await DELETE(deleteRequest())).status).toBe(403);
+    expect(mock.storage).not.toHaveBeenCalled();
+  });
+
+  it('deletes owned image metadata first and then removes the private storage object', async () => {
+    const storagePath = `${userId}/${listingId}/owned.webp`;
+    const delEq2 = vi.fn(async () => ({ error: null }));
+    const delEq1 = vi.fn(() => ({ eq: delEq2 }));
+    const imageTable = {
+      select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: { storage_path: storagePath }, error: null }) }) }) }),
+      delete: () => ({ eq: delEq1 }),
+    };
+    mock.from.mockImplementation((table: string) => table === 'listing_images' ? imageTable : listingQuery());
+    const response = await DELETE(deleteRequest());
+    expect(response.status).toBe(200);
+    expect(delEq1).toHaveBeenCalledWith('id', imageId);
+    expect(delEq2).toHaveBeenCalledWith('listing_id', listingId);
+    expect(mock.remove).toHaveBeenCalledWith([storagePath]);
   });
 });
