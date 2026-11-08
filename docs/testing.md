@@ -1,38 +1,50 @@
-# Testing
+# Testing — CampusMarket 2.0 (Wise Owl High School Westgate)
 
 ## Commands
 
 ```sh
-pnpm check                 # TypeScript
-pnpm lint                  # ESLint
-pnpm test                  # Vitest unit tests and optional live integration tests
+pnpm check                 # TypeScript (tsc --noEmit) + ESLint + Vitest unit/authorization suite
+pnpm typecheck             # TypeScript compiler check
+pnpm lint                  # ESLint check
+pnpm test                  # Vitest unit & authorization tests (8 files, 135 tests)
+pnpm test:db               # Embedded PostgreSQL (PGlite) schema, trigger, RPC, rate-limit, and RLS suite (24 scenarios)
 pnpm build                 # Next.js production compilation
 pnpm exec playwright install chromium
-pnpm test:e2e              # Playwright local development demo
+pnpm test:e2e              # Playwright Chromium E2E suite against an isolated in-memory PGlite Supabase server
 ```
 
-Playwright starts a local development server with explicit demo mode. Set `PLAYWRIGHT_BASE_URL` only when a suitable demo server is already running. Tests use isolated browser contexts and fictional data. The tests must never target a school production environment.
+## Isolated Zero-Product E2E Architecture
 
-## What the layers establish
+Playwright (`pnpm test:e2e`) launches two isolated test processes:
+1. **`tests/helpers/supabase-pglite-server.mjs`** (`http://127.0.0.1:54329`) — an in-memory `@electric-sql/pglite` PostgreSQL server that executes `supabase/tests/bootstrap.sql`, `202611080001_campusmarket.sql`, and `202611080002_wise_owl_projects.sql` from scratch, booting with **0 users, 0 project groups, and 0 products**.
+2. **`next dev`** (`http://127.0.0.1:3105`, using isolated build output `test-results/.next-e2e`) connected to the local PGlite server.
 
-- Unit tests validate inputs and pure authorization rules against malformed, unauthorized and boundary cases.
-- Browser tests exercise rendered navigation, search/filter/sort, forms, saved items, seller/moderator flows, theme persistence and responsive layout.
-- Live database tests require a configured Supabase development project. They establish RLS and database trigger behavior independently of UI guards. SQL tests are in `supabase/tests` when provided.
-- A production build verifies compilation and route generation. It does not verify external Auth, email delivery, hosted database migrations, storage permissions or deployment readiness.
+This guarantees:
+- The live application codebase contains **zero demo fixtures, zero fictional products, and zero `localStorage` fallbacks**.
+- E2E tests verify the real initial zero-product empty states first, and then test real account creation, email confirmation, admin seller approval, group creation, collaborator invitation, real WebP photo upload via `sharp`, primary image reordering, admin product moderation, manual verified product entry, stock updates, safe purchase requests, and atomic stock deduction on fulfillment.
 
-## Execution record
+## What Each Layer Establishes
+
+- **Unit & Authorization Tests (`tests/unit/*.test.ts` — 135 tests)**:
+  - `config.test.ts`: Environment validation and automated repository scan asserting `src/lib/demo.ts`, `public/products/*.svg`, `scripts/generate-demo-art.mjs`, and `CAMPUSMARKET_DEMO` do not exist anywhere in the codebase.
+  - `permissions.test.ts`: Individual seller, project group owner/collaborator/viewer, buyer, and administrator authorization rules.
+  - `validation.test.ts`: Zod schemas, contact-detail blocking (email/phone regex), USD pricing (`$0.50`–`$5,000.00`), stock quantities (`0`–`10,000`), and magic-byte image header validation (JPEG, PNG, non-animated WebP; SVG rejected).
+  - `server-auth.test.ts`, `auth-callback.test.ts`, `server-routing.test.ts`: Session boundaries, unverified/pending/suspended redirects, open-redirect protection, and legacy `/listing/*` compatibility redirects.
+  - `actions.test.ts` & `upload-route.test.ts`: Server Actions and `/api/upload` route handlers (`POST` & `DELETE`) across individual sellers, group collaborators, buyers, and administrators.
+- **Database & RLS Integration Suite (`supabase/tests/run.mjs` — 24 scenarios)**:
+  - Exercises real PostgreSQL triggers, column grants, `SECURITY DEFINER` RPCs, rate limits, storage policies, collaborative seller groups, and atomic purchase request fulfillment inside `@electric-sql/pglite`.
+- **Playwright Browser E2E Suite (`tests/e2e/marketplace.spec.ts` — 7 serial test blocks covering 15 scenarios)**:
+  - Exercises all 15 required user journeys and responsive viewports (`360px`, `768px`, `1366px`, `1920px`, plus light and dark themes) in headless Chromium.
+
+## Execution Record
 
 Validated locally on Windows (Node.js v24.22.1, pnpm 11.25.0):
 
-- `pnpm typecheck` (`tsc --noEmit`): Passed (0 errors).
-- `pnpm lint` (`eslint .`): Passed (0 errors, 0 warnings).
-- `pnpm test` (`vitest run`): Passed (8 test files, 115 unit and authorization tests).
-- `pnpm test:db` (`node supabase/tests/run.mjs`): Passed (20 embedded PostgreSQL / PGlite schema, trigger, RPC, rate-limit, and RLS scenarios).
-- `pnpm build` (`next build`): Passed (production App Router compilation, static/dynamic route generation, and proxy bundle).
-- `pnpm test:e2e` (`playwright test`): Passed (14 Chromium browser scenarios across 360px, 768px, 1366px, and 1920px viewports covering marketplace browse/search/filter/sort, saves, dark mode, seller pending-review lifecycle, admin user verification, report resolution, audit log, and 404 handling).
+- `pnpm typecheck` (`tsc --noEmit`): **Passed** (0 errors).
+- `pnpm lint` (`eslint .`): **Passed** (0 errors, 0 warnings).
+- `pnpm test` (`vitest run`): **Passed** (8 test files, 135/135 unit and authorization tests).
+- `pnpm test:db` (`node supabase/tests/run.mjs`): **Passed** (24/24 embedded PostgreSQL / PGlite schema, trigger, RPC, rate-limit, and RLS scenarios).
+- `pnpm build` (`next build`): **Passed** (Next.js 16.4.5 production compilation and proxy bundle).
+- `pnpm test:e2e` (`playwright test`): **Passed** (7/7 serial Chromium test blocks covering all 15 required CampusMarket 2.0 scenarios and `360px` / `768px` / `1366px` / `1920px` responsive checks).
 
-Live hosted Supabase verification (GoTrue SMTP delivery, hosted PostgREST, and cloud Storage HTTP endpoints) was **not executed** because no external Supabase project credentials are configured in this local environment.
-
-## Manual acceptance before launch
-
-Test actual email signup/confirmation/login/recovery/logout with fictional accounts. Verify pending/rejected/suspended states, direct admin requests as a student, cross-user edit/delete attempts, image signature spoofing and size/count limits, listing re-review, report resolution and audit entries. Recheck private Storage with anonymous and unapproved tokens. Test keyboard-only operation and a screen reader, real mobile devices, slow network failures and session expiry. Approve the school exchange process and policy placeholders before launch.
+Live hosted Supabase cloud verification (GoTrue SMTP delivery, hosted PostgREST, and cloud Storage buckets) requires connecting a real Wise Owl High School Westgate Supabase project in `.env.local`.

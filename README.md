@@ -1,78 +1,67 @@
-# CampusMarket
+# CampusMarket 2.0 — Wise Owl High School Westgate Student Project Marketplace
 
-A school-exclusive second-hand marketplace for one secondary school in Zimbabwe. Prices are in USD. This is an implementation for local evaluation, **not an authorization for public launch**. No production deployment is performed.
+A school-specific digital marketplace where learners at **Wise Owl High School Westgate (Harare, Zimbabwe)** showcase and sell real goods produced through their **School-Based Projects** under Zimbabwe’s Heritage-Based Curriculum Framework (2024–2030). Prices are in USD. This repository is prepared for local evaluation and school review—**no public deployment is performed without explicit school authorization**.
 
-The application uses Next.js App Router, React, strict TypeScript, Tailwind CSS, Supabase Auth/PostgreSQL/private Storage, Zod, Lucide, and Sonner. The local demo uses fictional names and products. Connected mode requires email verification and manual school approval before marketplace access.
+> **Disclaimer:** CampusMarket is a student-created platform developed for Wise Owl High School Westgate learners to showcase real school-project products. Unless formally established otherwise by school administration, it is not an official commercial publication of Wise Owl Group of Schools.
 
-## Run locally
+## Core Principles
 
-Install Node.js 22 or newer and pnpm. From this directory:
+- **Zero Invented Products:** The runtime application and database migrations contain **zero** fake products, fictional sellers, fabricated counts, or illustrative listings. An empty catalog renders a purposeful zero-product empty state until real school-approved products are published.
+- **Individual & Shared Group Seller Workspaces:** Students register as Individual Sellers or form collaborative Project Groups (`owner` / `member` roles with `can_manage_products` permissions) **without ever sharing passwords**.
+- **Safe, Supervised Coordination:** Buyers submit structured Purchase Requests (`pending` → `accepted` / `declined` → `fulfilled` / `cancelled`). Stock is deducted atomically only upon confirmed fulfillment. No online payments are processed and no student phone numbers, emails, or home addresses are displayed publicly.
+- **Strict Defense-in-Depth:** Next.js App Router + TypeScript + Zod validation + server-verified Supabase SSR sessions + PostgreSQL Row Level Security (RLS) + Sharp metadata-stripping private WebP image storage.
+
+## Run Locally
+
+Install Node.js 22+ and `pnpm`. From `campusmarket/`:
 
 ```sh
 pnpm install
 ```
 
-Copy `.env.example` to `.env.local`, keeping `CAMPUSMARKET_DEMO=true` for the local demo, then run:
+Copy `.env.example` to `.env.local`. Without Supabase credentials, public informational pages (`/`, `/about`, `/seller`, `/seller/register`, `/rules`, `/privacy`) and empty-state previews render cleanly with zero invented data, while account and database operations remain safely disabled until configured:
 
 ```sh
 pnpm dev
 ```
 
-Open [localhost:3000](http://localhost:3000). Demo interactions are labeled simulations and stored only in the local browser. They create no real accounts and do not write to Supabase. Demo mode is disabled when `NODE_ENV=production`; an unconfigured production server does not expose a marketplace.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-To connect a real development Supabase project, set `CAMPUSMARKET_DEMO=false`, configure the environment variables below, apply the SQL migration, configure email URLs, and bootstrap an administrator through privileged SQL. Follow [Supabase setup](docs/supabase-setup.md) and [admin setup](docs/admin-setup.md).
+To connect a real development Supabase project, configure `.env.local`, apply both migrations in `supabase/migrations/` in lexical order, configure Auth redirect URLs, and bootstrap the first school administrator via privileged SQL. Follow [Supabase setup](docs/supabase-setup.md) and [Admin setup](docs/admin-setup.md).
 
-## Environment
+## Environment Variables
 
 | Variable | Purpose |
 | --- | --- |
-| `CAMPUSMARKET_DEMO` | Explicit local demo opt-in; ignored in production |
-| `NEXT_PUBLIC_SUPABASE_URL` | Your project's HTTPS API URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your project's publishable API key; authorization remains enforced by RLS |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only privileged key for verified image uploads; never share with clients |
-| `NEXT_PUBLIC_SITE_URL` | Exact canonical app origin for email callbacks and redirect safety |
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project HTTPS API URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your Supabase publishable/anon API key (all data access enforced by RLS) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only privileged key used strictly after ownership/group verification for private Storage writes |
+| `NEXT_PUBLIC_SITE_URL` | Exact canonical app origin (e.g. `http://127.0.0.1:3000` locally, HTTPS in production) |
 
-No Supabase project, credentials, or email provider is included or invented. Keep `.env.local` out of version control.
+Keep `.env.local` out of version control.
 
-## Application flows
+## Key Routes
 
-- Browse, search, filter and sort approved listings; view image galleries and limited seller display names.
-- Save listings, create and edit owned listings, submit for review, delete, and mark active listings sold.
-- Register, verify email, log in, request password recovery, and await manual school approval.
-- Manage personal listings, saved products, and display name.
-- Administrators approve/reject/suspend users, moderate listings, review reports, and inspect audit events.
-- School rules, privacy notice, and exchange procedure are explicitly awaiting school review.
+| Route | Purpose |
+| --- | --- |
+| `/` | Wise Owl Westgate Student Project Marketplace homepage (Hero, Sections A–E) |
+| `/marketplace`, `/category/[slug]` | Approved-member catalog with search, curriculum category, availability, price, and sort filters |
+| `/projects`, `/projects/[slug]` | Verified collaborative student project groups and team rosters |
+| `/product/[id]` | Product gallery, project craft/engineering specifications, and Safe Purchase Request panel |
+| `/seller`, `/seller/register` | Dedicated Seller Portal overview and Individual / Group Seller registration |
+| `/seller/dashboard`, `/seller/products` | Real database metrics, workspace switcher, product management, stock modal, and incoming requests |
+| `/seller/products/new`, `/seller/products/[id]/edit` | Real product submission & editing (up to 5 photos, choose main photo, USD price, integer stock, project specs) |
+| `/seller/group`, `/seller/settings` | Shared Project Group workspaces, invitations, join requests, and seller profile settings |
+| `/account` | Buyer purchase requests, saved shortlist, and account settings |
+| `/admin`, `/admin/users`, `/admin/groups`, `/admin/products`, `/admin/requests`, `/admin/reports` | School administration verification, group moderation, product review, verified manual product entry, purchase request oversight, and immutable audit log |
 
-There are no payments, direct messages, anonymous messaging, or displayed student contact details.
-
-## Verification
+## Verification Commands
 
 ```sh
-pnpm check
-pnpm lint
-pnpm test
-pnpm build
-pnpm exec playwright install chromium
-pnpm test:e2e
+pnpm check       # TypeScript + ESLint + Vitest unit/authorization suite
+pnpm test:db     # Embedded PostgreSQL (PGlite) migration, trigger, RPC & RLS security suite
+pnpm build       # Production Next.js build
+pnpm test:e2e    # Isolated PGlite + Chromium end-to-end browser suite (starts from 0 products)
 ```
 
-See [testing](docs/testing.md) for test scopes, environment requirements, and recorded execution results. A successful demo test does not verify hosted Supabase RLS, email delivery, or Storage policies.
-
-## Project map
-
-| Path | Purpose |
-| --- | --- |
-| `src/app` | Server-rendered routing, server actions, callback and upload handlers |
-| `src/components` | Marketplace, account, seller, and moderation interfaces |
-| `src/lib/server` | Supabase SSR clients, authoritative access checks, and data queries |
-| `src/lib/validation.ts` | Shared input validation |
-| `src/lib/permissions.ts` | Pure permission helpers used by server checks and tests |
-| `src/lib/demo.ts` | Fictional demonstration fixtures |
-| `supabase/migrations` | Database schema, constraints, RLS, RPCs and private bucket policies |
-| `tests` | Unit, integration and browser test suites |
-
-Read [architecture](docs/architecture.md), [database](docs/database.md), [security](docs/security.md), and [deployment preparation](docs/deployment.md) before configuring a school environment.
-
-## Before school launch
-
-Configure and independently test Supabase, SMTP and email verification; run database integration tests using fictional accounts; approve the school rules/privacy notice and supervised exchange method; establish administrator ownership, incident response, retention, backups and abuse controls; complete school authorization and the launch checklist. Live integration and public-launch readiness must not be inferred from the local demo.
+See [testing](docs/testing.md), [architecture](docs/architecture.md), [database](docs/database.md), [security](docs/security.md), and [deployment preparation](docs/deployment.md).

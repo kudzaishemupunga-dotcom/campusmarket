@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mock = vi.hoisted(() => ({
-  demo: vi.fn(),
   configured: vi.fn(),
   exchange: vi.fn(),
   verifyOtp: vi.fn(),
@@ -10,7 +9,6 @@ const mock = vi.hoisted(() => ({
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/server/config', () => ({
-  isDemoMode: mock.demo,
   isSupabaseConfigured: mock.configured,
   siteUrl: () => 'https://campus.example',
 }));
@@ -26,23 +24,17 @@ vi.mock('@/lib/server/supabase', () => ({
 import { GET } from '@/app/auth/callback/route';
 
 beforeEach(() => {
-  mock.demo.mockReturnValue(false);
   mock.configured.mockReturnValue(true);
   mock.exchange.mockResolvedValue({ error: null });
   mock.verifyOtp.mockResolvedValue({ error: null });
 });
 
 describe('auth callback security boundaries', () => {
-  it('blocks callback session exchange in demo or unconfigured mode', async () => {
-    mock.demo.mockReturnValue(true);
-    const res1 = await GET(new NextRequest('https://campus.example/auth/callback?code=abc'));
-    expect(res1.headers.get('location')).toBe('https://campus.example/login?notice=configuration-required');
-    expect(mock.exchange).not.toHaveBeenCalled();
-
-    mock.demo.mockReturnValue(false);
+  it('blocks callback session exchange when Supabase is unconfigured', async () => {
     mock.configured.mockReturnValue(false);
-    const res2 = await GET(new NextRequest('https://campus.example/auth/callback?code=abc'));
-    expect(res2.headers.get('location')).toBe('https://campus.example/login?notice=configuration-required');
+    const res = await GET(new NextRequest('https://campus.example/auth/callback?code=abc'));
+    expect(res.headers.get('location')).toBe('https://campus.example/login?notice=configuration-required');
+    expect(mock.exchange).not.toHaveBeenCalled();
   });
 
   it('prevents open redirects and routes verified signups to pending approval', async () => {

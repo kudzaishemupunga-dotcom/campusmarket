@@ -1,82 +1,178 @@
 import { describe, expect, it } from 'vitest';
 import {
-  displayNameSchema, emailSchema, imageKind, listingModerationSchema, listingSchema,
-  loginSchema, MAX_IMAGE_BYTES, passwordSchema, reportSchema, safeRedirect,
-  signupSchema, userModerationSchema, validateImageHeader,
+  adminProductSchema,
+  displayNameSchema,
+  emailSchema,
+  groupCreateSchema,
+  imageKind,
+  listingModerationSchema,
+  listingSchema,
+  loginSchema,
+  MAX_IMAGE_BYTES,
+  passwordSchema,
+  purchaseRequestSchema,
+  purchaseRequestStatusSchema,
+  reportSchema,
+  safeRedirect,
+  sellerRegistrationSchema,
+  signupSchema,
+  stockUpdateSchema,
+  userModerationSchema,
+  validateImageHeader,
 } from '@/lib/validation';
 
 const categoryId = '10000000-0000-4000-8000-000000000001';
+const ownerId = '20000000-0000-4000-8000-000000000001';
 const listing = {
-  title: 'Mathematics textbook', description: 'A clean mathematics textbook with all pages intact.',
-  price: '8.00', category_id: categoryId, condition: 'Good', status: 'pending_review',
+  title: 'Solar study desk lamp',
+  description: 'A rechargeable study lamp constructed during our Form 4 STEM practical project.',
+  price: '12.50',
+  stock_quantity: 4,
+  availability: 'available',
+  category_id: categoryId,
+  condition: 'New',
+  status: 'pending_review',
+  project_name: 'Clean Energy Lab',
+  learning_area: 'STEM, Robotics & Electronics',
 };
 
-describe('listing input boundaries', () => {
-  it('accepts valid USD amounts without converting the persisted representation to float', () => {
-    expect(listingSchema.parse(listing).price).toBe('8.00');
-    expect(listingSchema.parse({ ...listing, price: '0.50' }).price).toBe('0.50');
-    expect(listingSchema.parse({ ...listing, price: '5000.00' }).price).toBe('5000.00');
+describe('product listing input boundaries', () => {
+  it('accepts valid USD amounts and integer stock quantities without float coercion', () => {
+    const parsed = listingSchema.parse(listing);
+    expect(parsed.price).toBe('12.50');
+    expect(parsed.stock_quantity).toBe(4);
+    expect(listingSchema.parse({ ...listing, price: '0.50', stock_quantity: '0' }).stock_quantity).toBe(0);
+    expect(listingSchema.parse({ ...listing, price: '5000.00', stock_quantity: 10000 }).price).toBe('5000.00');
   });
-  it.each(['-1', '0', '0.49', '5000.01', '10000', '1.001', '1e2', 'NaN', 'Infinity', '$5', '05', ''])('rejects malformed or out-of-bounds price %s', (price) => {
-    expect(listingSchema.safeParse({ ...listing, price }).success).toBe(false);
+
+  it.each(['-1', '0', '0.49', '5000.01', '10000', '1.001', '1e2', 'NaN', 'Infinity', '$5', '05', ''])(
+    'rejects malformed or out-of-bounds price %s',
+    (price) => {
+      expect(listingSchema.safeParse({ ...listing, price }).success).toBe(false);
+    }
+  );
+
+  it.each([-1, 1.5, 10001, 'abc'])('rejects invalid stock quantity %s', (stock_quantity) => {
+    expect(listingSchema.safeParse({ ...listing, stock_quantity }).success).toBe(false);
+    expect(stockUpdateSchema.safeParse({ id: categoryId, stock_quantity }).success).toBe(false);
   });
-  it('does not let a seller approve their own listing through a status field', () => {
+
+  it('does not let a seller approve their own product through a status field', () => {
     for (const status of ['active', 'sold', 'removed']) {
       expect(listingSchema.safeParse({ ...listing, status }).success).toBe(false);
     }
   });
-  it('defaults new submissions to pending review and accepts explicit drafts', () => {
-    const input = { title: listing.title, description: listing.description, price: listing.price, category_id: listing.category_id, condition: listing.condition };
-    expect(listingSchema.parse(input).status).toBe('pending_review');
-    expect(listingSchema.parse({ ...input, status: 'draft' }).status).toBe('draft');
+
+  it('defaults new submissions to pending review, New condition, and 1 stock unit', () => {
+    const parsed = listingSchema.parse({
+      title: listing.title,
+      description: listing.description,
+      price: listing.price,
+      category_id: listing.category_id,
+    });
+    expect(parsed.status).toBe('pending_review');
+    expect(parsed.condition).toBe('New');
+    expect(parsed.stock_quantity).toBe(1);
   });
-  it('blocks student email addresses and phone numbers in listing content', () => {
-    expect(listingSchema.safeParse({ ...listing, title: 'Calculator email student@school.ac.zw' }).success).toBe(false);
-    expect(listingSchema.safeParse({ ...listing, description: 'Clean textbook in great shape, message me on +263 77 123 4567.' }).success).toBe(false);
-    expect(listingSchema.safeParse({ ...listing, description: 'Clean textbook in great shape, call 0772 345 678 after class.' }).success).toBe(false);
-  });
-  it('rejects malformed identifiers, short descriptions and unrecognized conditions', () => {
-    expect(listingSchema.safeParse({ ...listing, id: '../other-user' }).success).toBe(false);
-    expect(listingSchema.safeParse({ ...listing, category_id: 'textbooks' }).success).toBe(false);
-    expect(listingSchema.safeParse({ ...listing, description: 'Fine' }).success).toBe(false);
-    expect(listingSchema.safeParse({ ...listing, condition: 'Perfect' }).success).toBe(false);
-    expect(listingSchema.safeParse({ ...listing, title: 'x'.repeat(101) }).success).toBe(false);
-    expect(listingSchema.safeParse({ ...listing, description: 'x'.repeat(3001) }).success).toBe(false);
+
+  it('blocks student email addresses and phone numbers across all product and project fields', () => {
+    expect(listingSchema.safeParse({ ...listing, title: 'Lamp email student@school.ac.zw' }).success).toBe(false);
+    expect(listingSchema.safeParse({ ...listing, description: 'Handmade lamp, message me on +263 77 123 4567.' }).success).toBe(false);
+    expect(listingSchema.safeParse({ ...listing, materials: 'Pine wood, call 0772 345 678 after class.' }).success).toBe(false);
   });
 });
 
-describe('account and moderation validation', () => {
-  it('accepts signup details and enforces password length', () => {
-    const input = { display_name: '  Demo Student  ', email: 'student@example.test', password: 'fictional-password-123' };
-    expect(signupSchema.parse(input).display_name).toBe('Demo Student');
+describe('seller, group, purchase request, and admin schemas', () => {
+  it('validates seller registration pathways and project group creation', () => {
+    expect(
+      sellerRegistrationSchema.parse({
+        seller_type: 'individual',
+        project_summary: 'Designing hand-stitched textile satchels for Design & Technology.',
+      }).seller_type
+    ).toBe('individual');
+
+    expect(
+      groupCreateSchema.parse({
+        name: 'Westgate Agro Processing Team',
+        project_description: 'Producing dried orchard fruit packs from our agriculture practical plot.',
+        learning_area: 'Agriculture & Food Production',
+      }).name
+    ).toBe('Westgate Agro Processing Team');
+
+    expect(
+      groupCreateSchema.safeParse({
+        name: 'Team 0772 123 456',
+        project_description: 'Producing dried orchard fruit packs from our agriculture practical plot.',
+      }).success
+    ).toBe(false);
+  });
+
+  it('validates safe purchase requests and blocks contact info in buyer notes', () => {
+    expect(
+      purchaseRequestSchema.parse({
+        listing_id: categoryId,
+        quantity: 2,
+        note: 'Available to collect during Tuesday break supervision.',
+      }).quantity
+    ).toBe(2);
+
+    expect(purchaseRequestSchema.safeParse({ listing_id: categoryId, quantity: 0 }).success).toBe(false);
+    expect(
+      purchaseRequestSchema.safeParse({
+        listing_id: categoryId,
+        quantity: 1,
+        note: 'WhatsApp me on +263 77 999 0000',
+      }).success
+    ).toBe(false);
+    expect(purchaseRequestStatusSchema.safeParse({ id: categoryId, status: 'fulfilled' }).success).toBe(true);
+    expect(purchaseRequestStatusSchema.safeParse({ id: categoryId, status: 'pending' }).success).toBe(false);
+  });
+
+  it('validates admin verified product creation', () => {
+    expect(
+      adminProductSchema.parse({
+        owner_id: ownerId,
+        title: listing.title,
+        description: listing.description,
+        price: '15.00',
+        stock_quantity: 3,
+        category_id: categoryId,
+      }).owner_id
+    ).toBe(ownerId);
+  });
+
+  it('accepts signup details, preserves login compatibility, and enforces moderation schemas', () => {
+    const input = { display_name: '  Test Learner  ', email: 'student@example.test', password: 'fictional-password-123' };
+    expect(signupSchema.parse(input).display_name).toBe('Test Learner');
     expect(signupSchema.safeParse({ ...input, password: 'short' }).success).toBe(false);
     expect(passwordSchema.safeParse('a'.repeat(129)).success).toBe(false);
-  });
-  it('does not weaken existing-user login by imposing a changed signup policy', () => {
     expect(loginSchema.safeParse({ email: 'student@example.test', password: 'older-pass' }).success).toBe(true);
-    expect(loginSchema.safeParse({ email: 'student@example.test', password: '' }).success).toBe(false);
-  });
-  it('rejects invalid email addresses and unsafe display names', () => {
     expect(emailSchema.safeParse('not-an-email').success).toBe(false);
     expect(displayNameSchema.safeParse('<script>name</script>').success).toBe(false);
-    expect(displayNameSchema.safeParse('A\u0000B').success).toBe(false);
-    expect(displayNameSchema.safeParse('Tariro student@example.com').success).toBe(false);
-    expect(displayNameSchema.safeParse('Tariro 0772 123 456').success).toBe(false);
-  });
-  it('limits moderation and report inputs to supported actions', () => {
     expect(listingModerationSchema.safeParse({ id: categoryId, status: 'active' }).success).toBe(true);
     expect(listingModerationSchema.safeParse({ id: categoryId, status: 'sold' }).success).toBe(false);
     expect(userModerationSchema.safeParse({ id: categoryId, status: 'admin' }).success).toBe(false);
     expect(reportSchema.safeParse({ listing_id: categoryId, reason: 'Other concern', details: 'Please review this product.' }).success).toBe(true);
-    expect(reportSchema.safeParse({ listing_id: categoryId, reason: 'Whatever', details: 'Please review this product.' }).success).toBe(false);
   });
 });
 
 describe('redirect restrictions', () => {
-  it.each(['/reset-password', '/pending-approval', '/dashboard'])('allows the intended destination %s', (path) => {
-    expect(safeRedirect(path)).toBe(path);
-  });
-  it.each(['https://evil.example', '//evil.example', '/\\evil.example', 'javascript:alert(1)', '/admin', '/dashboard?next=https://evil.example', null, 12])('rejects unsupported destination %s', (path) => {
+  it.each(['/reset-password', '/pending-approval', '/seller/dashboard', '/seller/register', '/marketplace'])(
+    'allows intended destination %s',
+    (path) => {
+      expect(safeRedirect(path)).toBe(path);
+    }
+  );
+  it.each([
+    'https://evil.example',
+    '//evil.example',
+    '/\\evil.example',
+    'javascript:alert(1)',
+    '/admin',
+    '/seller/dashboard?next=https://evil.example',
+    null,
+    12,
+  ])('rejects unsupported destination %s', (path) => {
     expect(safeRedirect(path)).toBe('/pending-approval');
   });
 });

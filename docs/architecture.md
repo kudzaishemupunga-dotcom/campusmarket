@@ -1,38 +1,26 @@
 # Architecture
 
-CampusMarket is a single Next.js App Router application. Server rendering supplies authorized page data. Client components handle forms, search/filter controls, galleries, theme persistence and the explicitly simulated development experience. Server Actions handle mutations; Route Handlers handle authentication callbacks and binary image upload requests.
+CampusMarket 2.0 is a single Next.js App Router application tailored for **Wise Owl High School Westgate** student projects. Server Components load authorized data via `@supabase/ssr`. Client Components handle interactive forms, workspace switching, photo staging, search/filter controls, and theme persistence. Server Actions (`src/app/actions.ts`) execute validated mutations, and Route Handlers (`src/app/auth/callback/route.ts`, `src/app/api/upload/route.ts`) handle PKCE/OTP callbacks and binary photograph ingestion.
 
-## Trust boundaries
+## Trust Boundaries
 
-1. User-controlled input is validated by Zod before use.
-2. Server code validates the current Supabase Auth identity and loads role/verification status from the database. User-editable Auth metadata never grants privileges.
-3. PostgreSQL row policies and triggers independently enforce membership, ownership and moderation rules.
-4. Image endpoints verify the current approved owner before accessing the server-only privileged Storage client. File bytes are validated and images are decoded/re-encoded before storage.
-5. Image downloads use short-lived signed URLs for a private bucket. URL holders can use an issued URL until it expires; do not treat signed URLs as revocable sessions.
+1. **Input Validation:** Every Server Action and Route Handler validates user-controlled inputs with strict Zod schemas (`src/lib/validation.ts`), enforcing fixed-point USD prices, non-negative integer stock (`0..10000`), UUID checks, and contact-detail guards that reject embedded phone numbers or email addresses.
+2. **Authoritative Server Identity:** `src/lib/server/auth.ts` verifies the Supabase Auth user (`auth.getUser()`) with a confirmed email and loads `role`, `verification_status`, `seller_type`, and `seller_approved` from `public.profiles`. User-editable Auth metadata never grants privileges.
+3. **Database Enforcement (RLS & Triggers):** PostgreSQL Row Level Security, column grants, triggers, and `SECURITY DEFINER` RPCs independently enforce school membership, individual seller approval, shared project group permissions, product moderation transitions, and row-locked atomic stock updates.
+4. **Verified Image Pipeline:** `/api/upload` verifies origin, rate limits, and individual or group product edit rights before decoding images via `sharp`, stripping EXIF/GPS metadata, bounding dimensions (`1600×1600`), and re-encoding to WebP inside the private `listing-images` bucket.
+5. **Private Image Delivery:** Product photographs are never stored in a public bucket; authorized viewers receive short-lived signed URLs (`60s`).
 
-## Modes
+## Runtime Modes (Zero Invented Data)
 
-`CAMPUSMARKET_DEMO=true` and a non-production runtime enables local fictional data. Browser-local state permits UI exploration without Supabase. Every simulated action is identified as demo behavior. Demo credentials are never sent to a real service, and server mutation entry points do not accept demo identities.
+- **Connected Supabase Mode (`mode: 'supabase'`):** Active when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are configured. Public informational routes (`/`, `/about`, `/seller`, `/seller/register`, `/rules`, `/privacy`) are accessible to visitors without exposing student catalog records; approved Wise Owl members access `/marketplace`, `/projects`, `/product/[id]`, `/seller/*`, and `/account`.
+- **Unconfigured Mode (`mode: 'unconfigured'`):** Active when Supabase environment variables are absent. Renders public informational pages and honest empty states with **zero** fictional products, sellers, or simulated mutations.
 
-Supabase mode requires the configured project URL and publishable key. Failure to configure a production runtime does not silently enable demo access. Missing external resources are surfaced as configuration limitations.
+## Individual & Shared Group Workspaces
 
-## Data lifecycle
+- **Individual Sellers:** Require `verification_status = 'approved'` and `seller_approved = true` (granted by a school administrator via `set_seller_access`).
+- **Project Groups:** Students create a `seller_groups` record (`verification_status = 'pending'`), becoming the group `owner` in `group_members`. Once an administrator approves the group (`moderate_group`), the owner or an administrator can invite approved school members (`invite_group_member`) or approve join requests (`manage_group_member`) with granular `can_manage_products` rights—eliminating any need for shared passwords. Multiple group memberships per learner are supported.
 
-New Auth users receive a pending student profile. Email verification precedes administrator approval. Approved members can read active listings and their own work; administrators can review pending listings. New submissions enter review, substantive edits to approved listings require review again, and only administrators can make listings active. Sellers can mark active owned listings sold.
+## Product & Purchase Request Lifecycle
 
-The database is the authority for listing state transitions. Moderation RPCs validate the administrator and write their audit event in the same transaction. Profile security columns cannot be changed through student updates.
-
-## Privacy and scope
-
-The application exposes a seller's display name, not their email, phone, exact location or timetable. Authentication details remain in Supabase Auth. No payments or conversations are implemented. The exchange process is a visible placeholder pending a school-approved supervised method.
-
-## Performance
-
-Authenticated data is rendered dynamically and must not be cached between users. Database indexes support seller/status/category lookup and search. Images are bounded in size and count, and image metadata is stripped at ingestion. No external analytics or third-party student tracking is configured. No Lighthouse measurement is claimed without running it.
-
-## Official references
-
-- [Next.js App Router installation](https://nextjs.org/docs/app/getting-started/installation)
-- [Next.js Proxy](https://nextjs.org/docs/app/getting-started/proxy)
-- [Supabase server-side authentication](https://supabase.com/docs/guides/auth/server-side)
-- [Supabase private storage](https://supabase.com/docs/guides/storage/buckets/fundamentals)
+- New student/group submissions enter `draft` or `pending_review`. Substantive edits to an `active` product (title, description, price, category, project details, or photographs) automatically return the listing to `pending_review` for renewed school moderation. Stock-only or availability updates (`update_stock`) keep an approved product `active` while syncing `stock_quantity = 0` (when not `made_to_order`) to `availability = 'sold_out'`.
+- Buyers submit supervised Purchase Requests (`submit_purchase_request`). Stock is **not** deducted when a request is `pending` or `accepted`. When the seller, authorized group member, or school administrator marks a request `fulfilled` (`update_purchase_request_status`), PostgreSQL locks the request and product rows (`FOR UPDATE`), verifies sufficient stock, deducts `stock_quantity` atomically, prevents negative stock or duplicate fulfillment, and sets `availability = 'sold_out'` when stock reaches zero.

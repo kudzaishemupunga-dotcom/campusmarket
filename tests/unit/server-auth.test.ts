@@ -9,8 +9,16 @@ vi.mock('@/lib/server/supabase', () => ({
 import { getSessionContext, requireMember } from '@/lib/server/auth';
 
 const profile: Profile = {
-  id: '20000000-0000-4000-8000-000000000001', display_name: 'Fictional Student', role: 'student',
-  avatar_path: null, verification_status: 'approved', created_at: '2026-01-01', updated_at: '2026-01-01',
+  id: '20000000-0000-4000-8000-000000000001',
+  display_name: 'Test Learner',
+  role: 'student',
+  avatar_path: null,
+  verification_status: 'approved',
+  seller_type: 'individual',
+  seller_approved: true,
+  project_summary: 'Woodwork practical',
+  created_at: '2026-01-01',
+  updated_at: '2026-01-01',
 };
 
 beforeEach(() => {
@@ -31,7 +39,10 @@ describe('authoritative server identity', () => {
     expect(mock.from).not.toHaveBeenCalled();
   });
   it('fails closed on an Auth verification error', async () => {
-    mock.getUser.mockResolvedValue({ data: { user: { id: profile.id, email_confirmed_at: '2026-01-01' } }, error: new Error('Expired token') });
+    mock.getUser.mockResolvedValue({
+      data: { user: { id: profile.id, email_confirmed_at: '2026-01-01' } },
+      error: new Error('Expired token'),
+    });
     await expect(requireMember()).rejects.toThrow('Please sign in');
     expect(mock.from).not.toHaveBeenCalled();
   });
@@ -44,7 +55,16 @@ describe('authoritative server identity', () => {
     await expect(requireMember()).rejects.toThrow('approve');
   });
   it('ignores an administrator claim in user-editable Auth metadata', async () => {
-    mock.getUser.mockResolvedValue({ data: { user: { id: profile.id, email_confirmed_at: '2026-01-01', user_metadata: { role: 'admin', verification_status: 'approved' } } }, error: null });
+    mock.getUser.mockResolvedValue({
+      data: {
+        user: {
+          id: profile.id,
+          email_confirmed_at: '2026-01-01',
+          user_metadata: { role: 'admin', verification_status: 'approved', seller_approved: true },
+        },
+      },
+      error: null,
+    });
     await expect(requireMember(true)).rejects.toThrow('permission');
   });
   it('uses the database role for an approved administrator', async () => {

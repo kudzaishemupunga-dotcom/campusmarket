@@ -1,32 +1,23 @@
-# Connect your own Supabase project
+# Connect Your Own Supabase Project
 
-Use a dedicated development project containing fictional users while validating the implementation. No external project has been created by this repository.
+Use a dedicated school-controlled development project while validating CampusMarket 2.0. No external cloud project or credentials have been pre-configured in this repository.
 
-1. Create a Supabase project under the school's approved account and region.
-2. Copy `.env.example` to `.env.local`. Set `CAMPUSMARKET_DEMO=false`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `NEXT_PUBLIC_SITE_URL` using values from your project. The service-role key stays on the server.
-3. Apply every SQL file in `supabase/migrations` in lexical order through the SQL editor, or use the Supabase CLI linked to your own development project. Review each migration first. See [database](database.md).
-4. Verify the `listing-images` bucket exists and is **private**. Do not make it public or add permissive Storage policies. The migration installs the bucket and policies.
-5. In Auth, enable email/password signup and require email confirmation. Do not disable confirmation for a school deployment. Configure custom SMTP with a provider approved by the school.
-6. Set the Auth Site URL to the exact canonical app origin. Add the app's `/auth/callback` URL to permitted redirect URLs, including the local origin used for testing. Use exact production URLs instead of broad wildcard patterns.
-7. Register a fictional administrator through the app, verify the email, then use the privileged bootstrap procedure in [admin setup](admin-setup.md). Never grant roles using user-editable Auth metadata.
-8. Register separate fictional approved students, a pending student and a suspended student. Execute the database/security tests and browser checks before adding real users.
+1. Create a Supabase project under Wise Owl High School Westgate’s approved account and region.
+2. Copy `.env.example` to `.env.local` and set:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (server-only secret; never expose to clients)
+   - `NEXT_PUBLIC_SITE_URL` (exact canonical origin, e.g. `http://127.0.0.1:3000` locally or HTTPS in production)
+3. Apply **both** SQL migrations in `supabase/migrations/` in lexical order (`202611080001_campusmarket.sql`, then `202611080002_wise_owl_projects.sql`) via the Supabase SQL Editor or linked Supabase CLI.
+4. Confirm the `listing-images` Storage bucket exists and remains **private**. Do not make it public or add permissive Storage policies.
+5. In Supabase Auth, enable Email/Password authentication with **Confirm email** required, and configure custom school-approved SMTP.
+6. Set the Auth **Site URL** to your exact canonical origin and add `<NEXT_PUBLIC_SITE_URL>/auth/callback` to **Redirect URLs**.
+7. Register the designated school administrator through `/signup`, verify their email link, and run the privileged bootstrap SQL in [admin-setup.md](admin-setup.md).
 
-For CLI-managed development, install the official [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), authenticate, link the intended project, and inspect the migration plan before pushing. Do not run a reset against a project with school data. Local CLI instances require Docker.
+## Verification Checklist
 
-## Email callbacks
-
-The callback exchanges the PKCE code for an SSR session and uses only allowed internal destinations. Recovery links return to the password-reset flow. Verify the templates and allowed URLs in the actual project: signup confirmation, expired link, recovery, resend limits, a new browser, and a recovery link opened in the browser that requested it. Provider configuration and email delivery cannot be verified without a real project.
-
-## Verification checklist
-
-- An anonymous browser cannot read listing rows or private images.
-- A confirmed but pending account reaches pending approval, not the marketplace.
-- An approved user can create a pending listing and upload permitted images.
-- Only an approved administrator can activate that listing.
-- A second student cannot edit/delete the first student's listing or access pending images.
-- Editing a live listing sends it back to review.
-- Suspended users lose restricted data access on subsequent requests.
-- Reports and moderation events persist and are visible only to permitted roles.
-- Images have no public download URL, and signed URLs expire.
-
-Official references: [Supabase SSR](https://supabase.com/docs/guides/auth/server-side), [Storage access control](https://supabase.com/docs/guides/storage/security/access-control), [signed downloads](https://supabase.com/docs/guides/storage/serving/downloads).
+- An unauthenticated visitor can view `/`, `/about`, `/seller`, and `/seller/register`, sees **0 products** (`"No projects listed yet."`), and cannot read catalog rows or private photographs.
+- A verified but unapproved student is routed to `/pending-approval` and cannot browse `/marketplace` or `/projects`.
+- An approved Individual Seller or permitted Project Group collaborator can submit a product with up to 5 real photographs and choose the main cover photo.
+- New and substantively edited products stay in `pending_review` until an approved administrator activates them on `/admin/products`.
+- Buyer Purchase Requests do not deduct stock until confirmed `fulfilled`, at which point stock updates atomically and transitions `0` stock to `Sold out`.

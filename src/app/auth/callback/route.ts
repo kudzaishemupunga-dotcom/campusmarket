@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { safeRedirect } from '@/lib/validation';
-import { isDemoMode, isSupabaseConfigured, siteUrl } from '@/lib/server/config';
+import { isSupabaseConfigured, siteUrl } from '@/lib/server/config';
 import { serverSupabase } from '@/lib/server/supabase';
 
 export async function GET(request: NextRequest) {
   const origin = siteUrl();
-  if (isDemoMode() || !isSupabaseConfigured()) return NextResponse.redirect(new URL('/login?notice=configuration-required', origin));
+  if (!isSupabaseConfigured()) return NextResponse.redirect(new URL('/login?notice=configuration-required', origin));
   const params = request.nextUrl.searchParams;
   const code = params.get('code');
   const hash = params.get('token_hash');
