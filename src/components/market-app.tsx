@@ -158,8 +158,8 @@ export function MarketApp({
         toast.error(result.message);
       }
       return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to complete request. Please try again.';
+    } catch {
+      const message = 'Unable to complete request. Check your connection and try again.';
       toast.error(message);
       return { ok: false, message };
     } finally {
@@ -191,7 +191,7 @@ export function MarketApp({
   } else if (path === '/') {
     page = <HomePage />;
   } else if (path === '/marketplace' || path.startsWith('/category/')) {
-    page = <MarketplaceCatalog path={path} query={query} />;
+    page = <MarketplaceCatalog key={`${path}:${JSON.stringify(query)}`} path={path} query={query} />;
   } else if (path === '/projects' || path.startsWith('/projects/')) {
     page = <ProjectsExplorer path={path} />;
   } else if (path === '/about') {
@@ -232,6 +232,9 @@ export function MarketApp({
         </div>
       )}
       <main id="main" className={authRoute ? 'auth-main' : 'container main-content'}>
+        {(path.startsWith('/admin') || path.startsWith('/seller/')) &&
+          [data.listings, data.profiles, data.reports, data.events, data.purchaseRequests].some(rows => rows.length >= 200) &&
+          <p className="inline-notice" role="status">This workspace shows up to 200 records per collection. Counts describe the loaded records; ask the administrator to review the full database when the school grows beyond this limit.</p>}
         {page}
       </main>
       <Footer />

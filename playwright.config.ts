@@ -11,7 +11,14 @@ const useSystemChrome = (() => {
 
 const pglitePort = process.env.PGLITE_SUPABASE_PORT || '54329';
 const nextPort = process.env.PLAYWRIGHT_PORT || '3105';
-const appUrl = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${nextPort}`;
+if (process.env.PLAYWRIGHT_BASE_URL) {
+  throw new Error('CampusMarket E2E tests require fresh owned local servers. Unset PLAYWRIGHT_BASE_URL; this suite must never target a live app.');
+}
+for (const port of [pglitePort, nextPort]) {
+  if (!/^\d+$/.test(port) || Number(port) < 1024 || Number(port) > 65535) throw new Error('Test ports must be integers from 1024 through 65535.');
+}
+if (pglitePort === nextPort) throw new Error('The test app and database harness require separate ports.');
+const appUrl = `http://127.0.0.1:${nextPort}`;
 const supabaseUrl = `http://127.0.0.1:${pglitePort}`;
 
 export default defineConfig({
@@ -33,9 +40,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], ...(useSystemChrome ? { channel: 'chrome' } : {}) },
     },
   ],
-  webServer: process.env.PLAYWRIGHT_BASE_URL
-    ? undefined
-    : [
+  webServer: [
         {
           command: 'node tests/helpers/supabase-pglite-server.mjs',
           url: `${supabaseUrl}/health`,

@@ -179,6 +179,58 @@ describe('authentication actions', () => {
 });
 
 describe('mutation trust boundaries', () => {
+  it.each([undefined, null, 'true', 'false', 1])('does not infer seller approval from %s', async (seller_approved) => {
+    mock.member.mockResolvedValue({
+      client: { from: mock.from, rpc: mock.rpc },
+      profile: { ...profile, seller_approved },
+      user: { id: userId },
+    });
+    const db = query({ data: { seller_id: userId, group_id: null, status: 'active', listing_images: [] }, error: null });
+    mock.from.mockReturnValue(db);
+    expect((await runAction('save_listing', validListing)).ok).toBe(false);
+    expect((await runAction('save_listing', { ...validListing, id: listingId })).ok).toBe(false);
+    expect((await runAction('update_stock', { id: listingId, stock_quantity: 1 })).ok).toBe(false);
+    expect((await runAction('mark_sold', { id: listingId })).ok).toBe(false);
+    expect((await runAction('delete_listing', { id: listingId })).ok).toBe(false);
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalled();
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+
+  it('fails closed on a group permission lookup error even when partial data is returned', async () => {
+    const listingDb = query({ data: { seller_id: otherId, group_id: groupId, status: 'active' }, error: null });
+    mock.from.mockImplementation((table: string) => {
+      if (table === 'seller_groups') return query({ data: { id: groupId, verification_status: 'approved' }, error: null });
+      if (table === 'group_members') return query({ data: [{ user_id: userId, member_role: 'owner', status: 'approved', can_manage_products: true }], error: { message: 'permission read failed' } });
+      return listingDb;
+    });
+    expect((await runAction('save_listing', { ...validListing, id: listingId, group_id: groupId })).ok).toBe(false);
+    expect(listingDb.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects zero-row updates after ownership is revoked or the product is concurrently deleted', async () => {
+    mock.from.mockReturnValueOnce(query({ data: { seller_id: userId, group_id: null, status: 'active' }, error: null }));
+    mock.from.mockReturnValueOnce(query({ data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } }));
+    expect((await runAction('save_listing', { ...validListing, id: listingId })).ok).toBe(false);
+  });
+
+  it('does not return provider text just because it starts with a friendly domain prefix', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'Only confidential row values: private-student@example.test' } });
+    const result = await runAction('update_purchase_request', { id: requestId, status: 'accepted' });
+    expect(result.ok).toBe(false);
+    expect(result.message).not.toContain('private-student');
+    mock.rpc.mockResolvedValue({ data: null, error: { code: '23514', message: 'Requested quantity exceeds available stock.' } });
+    expect((await runAction('submit_purchase_request', { listing_id: listingId, quantity: 3 })).message).toBe('Requested quantity exceeds available stock.');
+    mock.rpc.mockResolvedValue({ data: null, error: { code: '23514', message: 'Buyer, seller, group and product must remain approved and available.' } });
+    expect((await runAction('update_purchase_request', { id: requestId, status: 'fulfilled' })).message).toBe('Buyer, seller, group and product must remain approved and available.');
+  });
+
+  it('checks primary-photo ownership before invoking the privileged RPC', async () => {
+    mock.from.mockReturnValue(query({ data: { seller_id: otherId, group_id: null, created_by_admin: null, status: 'active' }, error: null }));
+    expect((await runAction('set_primary_image', { listing_id: listingId, image_id: '40000000-0000-4000-8000-000000000001' })).ok).toBe(false);
+    expect(mock.rpc).not.toHaveBeenCalled();
+  });
+
   it('fails closed when external configuration is missing', async () => {
     mock.configured.mockReturnValue(false);
     expect((await runAction('login', { email: 'student@example.test', password: 'fictional-pass-123' })).ok).toBe(false);
@@ -396,7 +448,7 @@ describe('seller registration, groups, products, purchase requests, and admin di
         owner_id: otherId,
         target_group_id: groupId,
         product_title: validListing.title,
-        product_price: 18.5,
+        product_price: '18.50',
         product_stock: 5,
       })
     );

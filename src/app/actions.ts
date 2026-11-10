@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { ActionName, ActionResult, GroupMember, Profile, SellerGroup } from '@/lib/types';
+import type { ActionName, ActionResult, GroupMember, SellerGroup } from '@/lib/types';
 import {
   assertApprovedSeller,
   assertCanEditProduct,
@@ -51,32 +51,44 @@ const adminActions = new Set<ActionName>([
   'resolve_report',
 ]);
 
-const domainErrorPrefixes = [
-  'Seller',
-  'Approved',
-  'Only ',
-  'Administrator',
-  'Too many requests',
-  'Please wait',
-  'Email must be verified',
-  'Approve the student',
-  'Group ',
-  'Project group',
-  'You already',
-  'You are already',
-  'No pending group invitation',
-  'The group creator',
-  'Product ',
-  'This product',
-  'Sellers cannot',
-  'Requested quantity',
-  'Purchase request',
-  'This purchase request',
-  'Insufficient stock',
-  'Image ',
-  'Attributed ',
-  'Choose a valid',
-];
+// Only exact, application-authored messages may cross the database boundary.
+// Prefix matching can accidentally expose provider errors containing row values.
+const publicDatabaseErrors = new Set([
+  'Seller access must be approved before creating products.',
+  'Approved group product permission required.',
+  'Administrator access required.',
+  'Too many requests. Please wait a minute.',
+  'Please wait before moderating again.',
+  'Email must be verified before school approval.',
+  'Approve the student membership and verify email before enabling seller access.',
+  'Seller and project group must be approved before publishing.',
+  'Group not found or unavailable.',
+  'Project group not found.',
+  'You already have an active or pending membership for this group.',
+  'You are already in this group.',
+  'No pending group invitation found. Membership requests require owner or administrator approval.',
+  'The group creator role cannot be removed or modified here.',
+  'Product is not available.',
+  'This product is not currently open for purchase requests.',
+  'Sellers cannot submit purchase requests for their own products.',
+  'Requested quantity exceeds available stock.',
+  'Purchase request not found.',
+  'This purchase request has already been finalized.',
+  'Insufficient stock available to fulfill this request.',
+  'Image not found for this product.',
+  'Only the authorized seller or an administrator may update this request.',
+  'Only the buyer may cancel this purchase request.',
+  'Only a pending request can be accepted.',
+  'Only the group owner or an administrator may manage members.',
+  'Only the group owner may update group details.',
+  'Only an authorized seller may reorder product images.',
+  'This listing can no longer be edited.',
+  'Attributed seller must have verified email and current seller or group approval.',
+  'Attributed seller must be an approved member of this project group.',
+  'Choose a valid quantity.',
+  'Buyer, seller, group and product must remain approved and available.',
+  'Product must be active to fulfill a purchase request.',
+]);
 
 function extractSafeErrorMessage(error: unknown): string | null {
   if (!error || typeof error !== 'object') return null;
@@ -85,9 +97,7 @@ function extractSafeErrorMessage(error: unknown): string | null {
   if (code === '23505' && message.includes('seller_groups')) {
     return 'A project group with that name already exists. Choose a distinct group name.';
   }
-  if (['23514', '42501', 'P0001', 'P0002'].includes(code) || domainErrorPrefixes.some((prefix) => message.startsWith(prefix))) {
-    if (domainErrorPrefixes.some((prefix) => message.startsWith(prefix))) return message;
-  }
+  if (['23514', '42501', 'P0001', 'P0002'].includes(code) && publicDatabaseErrors.has(message)) return message;
   return null;
 }
 
@@ -95,12 +105,12 @@ async function loadMemberGroups(
   client: Awaited<ReturnType<typeof serverSupabase>>,
   groupId?: string | null
 ): Promise<Pick<SellerGroup, 'id' | 'verification_status' | 'members'>[]> {
-  if (!groupId || !client.from) return [];
+  if (!groupId) return [];
   const [groupRes, membersRes] = await Promise.all([
     client.from('seller_groups').select('id,verification_status').eq('id', groupId).single(),
     client.from('group_members').select('*').eq('group_id', groupId),
   ]);
-  if (groupRes.error || !groupRes.data) return [];
+  if (groupRes.error || !groupRes.data || membersRes.error || !membersRes.data) return [];
   const groupData = groupRes.data as { id: string; verification_status: SellerGroup['verification_status'] };
   const members = ((membersRes.data ?? []) as Omit<GroupMember, 'display_name'>[]).map((m) => ({
     ...m,
@@ -170,7 +180,7 @@ export async function runAction(action: ActionName, payload: Record<string, unkn
           const targetGroupId = (existing as { group_id?: string | null }).group_id ?? null;
           const groups = await loadMemberGroups(client, targetGroupId);
           assertCanEditProduct(
-            asSellerAwareProfile(profile),
+            profile,
             { seller_id: existing.seller_id, group_id: targetGroupId },
             groups
           );
@@ -195,7 +205,7 @@ export async function runAction(action: ActionName, payload: Record<string, unkn
               throw new PermissionError('Approved group product permission is required before listing under this group.');
             }
           } else {
-            assertApprovedSeller(asSellerAwareProfile(profile));
+            assertApprovedSeller(profile);
           }
           const { data, error } = await client
             .from('listings')
@@ -221,7 +231,7 @@ export async function runAction(action: ActionName, payload: Record<string, unkn
         if (readError || !existing) throw new PermissionError();
         const targetGroupId = (existing as { group_id?: string | null }).group_id ?? null;
         const groups = await loadMemberGroups(client, targetGroupId);
-        assertCanEditProduct(asSellerAwareProfile(profile), { seller_id: existing.seller_id, group_id: targetGroupId }, groups);
+        assertCanEditProduct(profile, { seller_id: existing.seller_id, group_id: targetGroupId }, groups);
         if (['removed', 'sold'].includes(existing.status)) {
           return { ok: false, message: 'Closed products cannot be updated.' };
         }
@@ -245,6 +255,14 @@ export async function runAction(action: ActionName, payload: Record<string, unkn
       }
       case 'set_primary_image': {
         const { listing_id, image_id } = primaryImageSchema.parse(payload);
+        const { data: listing, error: readError } = await client.from('listings')
+          .select('seller_id,group_id,created_by_admin,status').eq('id', listing_id).single();
+        if (readError || !listing) throw new PermissionError();
+        if (!['draft', 'pending_review', 'active'].includes(listing.status)) throw new PermissionError('This product can no longer be edited.');
+        if (!(profile.role === 'admin' && listing.created_by_admin === profile.id)) {
+          const groupId = listing.group_id ?? null;
+          assertCanEditProduct(profile, { seller_id: listing.seller_id, group_id: groupId }, await loadMemberGroups(client, groupId));
+        }
         const { error } = await client.rpc('set_primary_listing_image', {
           target_listing_id: listing_id,
           target_image_id: image_id,
@@ -263,7 +281,7 @@ export async function runAction(action: ActionName, payload: Record<string, unkn
         if (readError || !listing) throw new PermissionError();
         const targetGroupId = (listing as { group_id?: string | null }).group_id ?? null;
         const groups = await loadMemberGroups(client, targetGroupId);
-        assertCanEditProduct(asSellerAwareProfile(profile), { seller_id: listing.seller_id, group_id: targetGroupId }, groups);
+        assertCanEditProduct(profile, { seller_id: listing.seller_id, group_id: targetGroupId }, groups);
         let deleteQuery = client.from('listings').delete().eq('id', id);
         if (!targetGroupId) deleteQuery = deleteQuery.eq('seller_id', profile.id);
         const { error } = await deleteQuery.select('id').single();
@@ -285,7 +303,7 @@ export async function runAction(action: ActionName, payload: Record<string, unkn
         if (readError || !existing) throw new PermissionError();
         const targetGroupId = (existing as { group_id?: string | null }).group_id ?? null;
         const groups = await loadMemberGroups(client, targetGroupId);
-        assertCanEditProduct(asSellerAwareProfile(profile), { seller_id: existing.seller_id, group_id: targetGroupId }, groups);
+        assertCanEditProduct(profile, { seller_id: existing.seller_id, group_id: targetGroupId }, groups);
         if (existing.status !== 'active') return { ok: false, message: 'Only an active product can be marked as sold.' };
         let updateQuery = client
           .from('listings')
@@ -465,7 +483,7 @@ export async function runAction(action: ActionName, payload: Record<string, unkn
           target_group_id: values.group_id,
           product_title: values.title,
           product_description: values.description,
-          product_price: Number(values.price),
+          product_price: values.price,
           product_category_id: values.category_id,
           product_stock: values.stock_quantity,
           product_project_name: values.project_name,
@@ -507,14 +525,6 @@ export async function runAction(action: ActionName, payload: Record<string, unkn
     if (safeMessage) return { ok: false, message: safeMessage };
     return { ok: false, message: 'Your request could not be completed. Please check your connection and try again.' };
   }
-}
-
-function asSellerAwareProfile(profile: Profile): Profile {
-  // Backwards-compatible default when unit tests supply partial profile fixtures without seller_approved
-  if (profile.seller_approved === undefined) {
-    return { ...profile, seller_approved: true, seller_type: profile.seller_type ?? 'individual' };
-  }
-  return profile;
 }
 
 async function authenticationAction(action: ActionName, payload: Record<string, unknown>): Promise<ActionResult> {

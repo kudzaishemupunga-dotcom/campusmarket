@@ -7,7 +7,7 @@ import { assertCanEditProduct, PermissionError } from '@/lib/permissions';
 import type { GroupMember, Profile, SellerGroup } from '@/lib/types';
 import { MAX_IMAGE_BYTES, MAX_IMAGES, uuidSchema, validateImageHeader } from '@/lib/validation';
 import { requireMember } from '@/lib/server/auth';
-import { isSupabaseConfigured, siteUrl } from '@/lib/server/config';
+import { isAllowedRequestOrigin, isSupabaseConfigured } from '@/lib/server/config';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { storageSupabase } from '@/lib/server/supabase';
 
@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 
 function verifyRequest(request: NextRequest) {
   if (!isSupabaseConfigured()) throw new PermissionError('Real uploads require a configured Supabase project.');
-  if (request.headers.get('origin') !== siteUrl()) throw new PermissionError('This request is not allowed.');
+  if (!isAllowedRequestOrigin(request.headers.get('origin'))) throw new PermissionError('This request is not allowed.');
 }
 
 async function limitedFormData(request: NextRequest): Promise<FormData> {
@@ -48,14 +48,9 @@ async function limitedFormData(request: NextRequest): Promise<FormData> {
 
 async function authorizeListingImageWrite(
   client: Awaited<ReturnType<typeof requireMember>>['client'],
-  rawProfile: Profile,
+  profile: Profile,
   listing: { seller_id: string; group_id?: string | null; created_by_admin?: string | null; status: string }
 ) {
-  const profile: Profile =
-    rawProfile.seller_approved === undefined
-      ? { ...rawProfile, seller_approved: true, seller_type: rawProfile.seller_type ?? 'individual' }
-      : rawProfile;
-
   if (profile.role === 'admin' && listing.created_by_admin === profile.id) return;
 
   const groupId = listing.group_id ?? null;
@@ -65,7 +60,7 @@ async function authorizeListingImageWrite(
       client.from('seller_groups').select('id,verification_status').eq('id', groupId).single(),
       client.from('group_members').select('*').eq('group_id', groupId),
     ]);
-    if (!groupRes.error && groupRes.data) {
+    if (!groupRes.error && groupRes.data && !membersRes.error && membersRes.data) {
       const g = groupRes.data as { id: string; verification_status: SellerGroup['verification_status'] };
       const members = ((membersRes.data ?? []) as Omit<GroupMember, 'display_name'>[]).map((m) => ({
         ...m,
@@ -150,7 +145,10 @@ export async function POST(request: NextRequest) {
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (error) {
-    if (storage && uploaded.length) await storage.storage.from('listing-images').remove(uploaded);
+    if (storage && uploaded.length) {
+      try { await storage.storage.from('listing-images').remove(uploaded); }
+      catch { /* Private orphan objects require the documented maintenance cleanup. */ }
+    }
     const message =
       error instanceof PermissionError
         ? error.message
@@ -164,11 +162,13 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     verifyRequest(request);
-    const { client } = await requireMember();
-    if (Number(request.headers.get('content-length')) > 2048) {
-      return NextResponse.json({ ok: false, message: 'Invalid request.' }, { status: 400 });
-    }
-    const { listingId, imageId } = z.object({ listingId: uuidSchema, imageId: uuidSchema }).parse(await request.json());
+    const { client, profile } = await requireMember();
+    const { listingId, imageId } = z.object({ listingId: uuidSchema, imageId: uuidSchema }).parse(await limitedJson(request));
+    const { data: listing, error: listingError } = await client.from('listings')
+      .select('seller_id,group_id,created_by_admin,status').eq('id', listingId).single();
+    if (listingError || !listing) throw new PermissionError();
+    await authorizeListingImageWrite(client, profile, listing);
+    if (!['draft', 'pending_review', 'active'].includes(listing.status)) throw new PermissionError('This product can no longer be edited.');
     const { error } = await client.rpc('set_primary_listing_image', {
       target_listing_id: listingId,
       target_image_id: imageId,
@@ -189,10 +189,7 @@ export async function DELETE(request: NextRequest) {
     verifyRequest(request);
     const { client, profile } = await requireMember();
     await checkRateLimit(client, 'upload');
-    if (Number(request.headers.get('content-length')) > 2048) {
-      return NextResponse.json({ ok: false, message: 'Invalid request.' }, { status: 400 });
-    }
-    const { listingId, imageId } = z.object({ listingId: uuidSchema, imageId: uuidSchema }).parse(await request.json());
+    const { listingId, imageId } = z.object({ listingId: uuidSchema, imageId: uuidSchema }).parse(await limitedJson(request));
     const { data: listing, error: listingError } = await client
       .from('listings')
       .select('seller_id,group_id,created_by_admin,status')
@@ -211,9 +208,9 @@ export async function DELETE(request: NextRequest) {
       .single();
     if (readError || !image) throw new PermissionError();
     const storage = storageSupabase();
-    const { error } = await client.from('listing_images').delete().eq('id', imageId).eq('listing_id', listingId);
-    if (error) throw error;
-    await storage.storage.from('listing-images').remove([image.storage_path]);
+    const { data: deleted, error } = await client.from('listing_images').delete().eq('id', imageId).eq('listing_id', listingId).select('id,storage_path').single();
+    if (error || !deleted || deleted.id !== imageId || deleted.storage_path !== image.storage_path) throw new PermissionError();
+    await storage.storage.from('listing-images').remove([deleted.storage_path]);
     revalidatePath('/', 'layout');
     return NextResponse.json({ ok: true, message: 'Product photo removed.' });
   } catch (error) {
@@ -222,4 +219,21 @@ export async function DELETE(request: NextRequest) {
       { status: error instanceof PermissionError ? 403 : 400 }
     );
   }
+}
+
+async function limitedJson(request: NextRequest): Promise<unknown> {
+  const reader = request.body?.getReader();
+  if (!reader) throw new Error('Invalid request.');
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > 2048) { await reader.cancel(); throw new Error('Invalid request.'); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }

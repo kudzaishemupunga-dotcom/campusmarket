@@ -50,6 +50,7 @@ try {
   await sql(await read('./bootstrap.sql'));
   await sql(await read('../migrations/202611080001_campusmarket.sql'));
   await sql(await read('../migrations/202611080002_wise_owl_projects.sql'));
+  await sql(await read('../migrations/202611090003_authorization_boundaries.sql'));
 
   await test('migrations apply cleanly, start with zero products, create private bucket and eight project categories', async () => {
     assert.equal(await scalar('select count(*)::int from public.categories'), 8);
@@ -499,3 +500,5 @@ try {
 } finally {
   await db.close();
 }
+
+await import('./security-regressions.mjs');

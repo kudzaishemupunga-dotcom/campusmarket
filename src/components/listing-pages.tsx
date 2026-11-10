@@ -678,6 +678,7 @@ export function ListingForm({ id, initialGroupId }: { id?: string; initialGroupI
   const [savedId, setSavedId] = useState(id);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [preferredPrimaryId, setPreferredPrimaryId] = useState<string | null>(null);
+  const [recoveryId, setRecoveryId] = useState<string | null>(null);
 
   const stagedPreviews = useMemo(
     () => files.map((file) => ({ file, url: URL.createObjectURL(file) })),
@@ -785,8 +786,10 @@ export function ListingForm({ id, initialGroupId }: { id?: string; initialGroupI
   }
 
   async function submit(values: ListingFields, targetStatus: 'draft' | 'pending_review' = 'pending_review') {
+    if (recoveryId) return;
     setSubmitting(true);
     setError('');
+    let persistedId: string | undefined;
     try {
       const payload = {
         ...values,
@@ -813,6 +816,7 @@ export function ListingForm({ id, initialGroupId }: { id?: string; initialGroupI
       const listingId = result.id || savedId;
       if (!listingId) throw new Error('Product ID missing. Please refresh your seller dashboard.');
       setSavedId(listingId);
+      persistedId = listingId;
 
       if (staging) {
         for (const imageId of removedImages) {
@@ -837,7 +841,8 @@ export function ListingForm({ id, initialGroupId }: { id?: string; initialGroupI
           }
         }
         if (preferredPrimaryId && !removedImages.includes(preferredPrimaryId)) {
-          await mutate('set_primary_image', { listing_id: listingId, image_id: preferredPrimaryId });
+          const primaryResult = await mutate('set_primary_image', { listing_id: listingId, image_id: preferredPrimaryId });
+          if (!primaryResult.ok) throw new Error(primaryResult.message);
         }
         if (targetStatus === 'pending_review') {
           const published = await mutate('save_listing', {
@@ -850,6 +855,9 @@ export function ListingForm({ id, initialGroupId }: { id?: string; initialGroupI
       }
       router.push('/seller/products');
     } catch (err) {
+      // A multi-step image update may have partially succeeded. Reopen the saved
+      // draft before retrying so files are not duplicated or deleted twice.
+      if (persistedId) setRecoveryId(persistedId);
       setError(err instanceof Error ? err.message : 'Unable to save your product. Please try again.');
     } finally {
       setSubmitting(false);
@@ -1154,10 +1162,10 @@ export function ListingForm({ id, initialGroupId }: { id?: string; initialGroupI
             {error && (
               <div className="form-error" role="alert">
                 {error}
-                {savedId && (
+                {recoveryId && (
                   <p>
-                    Your draft has been saved. Continue editing from{' '}
-                    <Link href={`/seller/products/${savedId}/edit`}>My Products</Link>.
+                    Your draft is saved. Reload its latest photos before trying again:{' '}
+                    <a className="text-link" href={`/seller/products/${recoveryId}/edit`}>Reopen saved draft</a>.
                   </p>
                 )}
               </div>
@@ -1170,12 +1178,12 @@ export function ListingForm({ id, initialGroupId }: { id?: string; initialGroupI
               <button
                 type="button"
                 className="button secondary"
-                disabled={submitting || busy}
+                disabled={submitting || busy || Boolean(recoveryId)}
                 onClick={handleSubmit((values) => submit(values, 'draft'))}
               >
                 Save draft
               </button>
-              <button type="submit" className="button primary" disabled={submitting || busy}>
+              <button type="submit" className="button primary" disabled={submitting || busy || Boolean(recoveryId)}>
                 {submitting ? 'Saving product…' : id ? 'Save & submit for approval' : 'Submit for approval'}
                 <ArrowRight size={16} />
               </button>

@@ -69,12 +69,12 @@ test('1 & 2. Initial marketplace starts at ZERO products with no fictional demo 
   await expect(page.getByTestId('empty-state')).toContainText('No verified project groups listed yet.');
 });
 
-test('14. Responsive viewports (360, 768, 1366, 1920), mobile navigation, and dark mode work cleanly', async ({
+test('14. Responsive viewports (360, 390, 768, 1366, 1920), mobile navigation, and dark mode work cleanly', async ({
   page,
 }) => {
   await signIn(page, 'admin@wiseowl.test');
 
-  for (const width of [360, 768, 1366, 1920]) {
+  for (const width of [360, 390, 768, 1366, 1920]) {
     await page.setViewportSize({ width, height: 960 });
     for (const route of ['/', '/marketplace', '/seller', '/seller/register', '/about', '/admin']) {
       await page.goto(route);
@@ -423,4 +423,92 @@ test('10, 11, 12 & 13. Stock updates, safe purchase requests, cross-user request
   await expect(page.getByTestId('detail-stock')).toContainText('0 units available');
   await expect(page.locator('.detail-category .badge-cluster')).toContainText('sold out');
   await expect(page.getByText('All available units from this project batch have been fulfilled.')).toBeVisible();
+});
+
+test('Mobile audit: populated catalog, filters, product details, forms and dialogs fit touch viewports', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const assertFits = async (label: string) => {
+    const dimensions = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth }));
+    expect(dimensions.scroll, `${label} has no horizontal overflow`).toBeLessThanOrEqual(dimensions.width + 1);
+    const clippedFields = await page.locator('main input:not([type="file"]):not([type="hidden"]), main select, main textarea, dialog[open] input, dialog[open] select, dialog[open] textarea').evaluateAll((elements) => elements.flatMap((element) => {
+      const bounds = element.getBoundingClientRect();
+      if (bounds.width === 0 || bounds.height === 0) return [];
+      return bounds.left < -1 || bounds.right > innerWidth + 1 ? [(element as HTMLInputElement).name || element.tagName] : [];
+    }));
+    expect(clippedFields, `${label} form controls fit screen`).toEqual([]);
+  };
+  try {
+    for (const width of [360, 390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const route of ['/login', '/signup', '/forgot-password', '/seller/register']) {
+        await page.goto(route);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await assertFits(`${route} at ${width}px`);
+      }
+    }
+
+    await signIn(page, 'farai@wiseowl.test');
+    for (const width of [360, 390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const route of ['/marketplace', `/product/${individualProductId}`, '/account', '/projects']) {
+        await page.goto(route);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await assertFits(`${route} at ${width}px`);
+      }
+      if (width <= 390) {
+        await page.goto('/marketplace');
+        await expect(page.getByTestId('listing-card')).toHaveCount(3);
+        await page.getByRole('button', { name: 'Filters', exact: true }).tap();
+        await expect(page.getByLabel('Minimum price', { exact: true })).toBeVisible();
+        await assertFits(`expanded filters at ${width}px`);
+        await page.getByLabel('Minimum price', { exact: true }).fill('9');
+        await page.getByLabel('Maximum price', { exact: true }).fill('10');
+        await page.getByRole('button', { name: 'Apply filters' }).tap();
+        await expect(page.getByTestId('listing-card')).toHaveCount(1);
+        await expect(page.getByTestId('listing-card')).toContainText('Drip Irrigation Starter Kit');
+        await page.screenshot({ path: path.join(SCREENSHOT_DIR, `catalog-filtered-${width}.png`), fullPage: true });
+
+        await page.goto(`/product/${individualProductId}`);
+        await page.getByRole('button', { name: 'Report a concern with this listing' }).tap();
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await assertFits(`report dialog at ${width}px`);
+        await page.getByRole('button', { name: 'Close dialog', exact: true }).tap();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await page.screenshot({ path: path.join(SCREENSHOT_DIR, `product-detail-${width}.png`), fullPage: true });
+      }
+    }
+
+    await signIn(page, 'tatenda@wiseowl.test');
+    for (const width of [360, 390, 768]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const route of ['/seller/dashboard', '/seller/products/new', `/seller/products/${individualProductId}/edit`, '/seller/group', '/seller/settings']) {
+        await page.goto(route);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await assertFits(`${route} at ${width}px`);
+      }
+      await page.goto('/seller/products');
+      const product = page.getByTestId('seller-product-row').filter({ hasText: 'Hardwood Study Desk Organiser' });
+      await product.getByRole('button', { name: 'Update Stock' }).tap();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await assertFits(`stock dialog at ${width}px`);
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, `stock-dialog-${width}.png`), fullPage: true });
+      await page.getByRole('button', { name: 'Close dialog', exact: true }).tap();
+    }
+
+    await signIn(page, 'admin@wiseowl.test');
+    for (const width of [360, 390, 768]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const route of ['/admin/users', '/admin/groups', '/admin/products', '/admin/requests', '/admin/reports']) {
+        await page.goto(route);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await assertFits(`${route} at ${width}px`);
+      }
+    }
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
 });

@@ -2992,7 +2992,28 @@ html[data-theme="dark"] .main-photo-pill {
 
 @media (max-width: 960px) {
   body {
-    padding-bottom: 4.5rem;
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .button, .pill-button, .page-tabs a, .mobile-menu a, .mobile-bottom a,
+  .card-cta, .report-link {
+    min-height: 44px;
+  }
+
+  .icon-button, .save-button, .search-submit, .avatar {
+    min-width: 44px;
+    min-height: 44px;
+    flex-shrink: 0;
+  }
+
+  input:not([type='checkbox']):not([type='radio']), select, textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .dialog {
+    max-height: calc(100dvh - 2rem);
+    overscroll-behavior: contain;
   }
 
   .desktop-nav,

@@ -22,7 +22,7 @@ export function isApprovedSeller(profile: Profile | null): boolean {
   return Boolean(
     profile &&
       profile.verification_status === 'approved' &&
-      (profile.seller_approved || profile.role === 'admin')
+      (profile.seller_approved === true || profile.role === 'admin')
   );
 }
 
@@ -56,7 +56,7 @@ export function canManageGroupProducts(profile: Profile | null, group: Pick<Sell
     (member) =>
       member.user_id === profile.id &&
       member.status === 'approved' &&
-      (member.member_role === 'owner' || member.can_manage_products)
+      (member.member_role === 'owner' || member.can_manage_products === true)
   );
 }
 
@@ -106,9 +106,9 @@ export function canReadListing(
   if (profile.role === 'admin' || listing.seller_id === profile.id) return true;
   if (listing.group_id && isApprovedGroupMember(profile, groups.find((item) => item.id === listing.group_id))) return true;
   if (listing.status !== 'active' && listing.status !== 'sold') return false;
-  if (listing.group_id && groups.length > 0) {
+  if (listing.group_id) {
     const group = groups.find((item) => item.id === listing.group_id);
-    if (group && group.verification_status !== 'approved') return false;
+    if (!group || group.verification_status !== 'approved') return false;
   }
   return true;
 }

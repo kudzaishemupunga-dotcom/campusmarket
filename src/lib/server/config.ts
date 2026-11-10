@@ -1,4 +1,5 @@
 import 'server-only';
+import { developmentOrigins } from '../network-config';
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
@@ -11,4 +12,9 @@ export function siteUrl(): string {
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid site URL.');
   if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') throw new Error('Production requires an HTTPS site URL.');
   return url.origin;
+}
+
+export function isAllowedRequestOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  return origin === siteUrl() || developmentOrigins().includes(origin);
 }

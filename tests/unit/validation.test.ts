@@ -4,6 +4,7 @@ import {
   displayNameSchema,
   emailSchema,
   groupCreateSchema,
+  groupRespondSchema,
   imageKind,
   listingModerationSchema,
   listingSchema,
@@ -15,6 +16,7 @@ import {
   reportSchema,
   safeRedirect,
   sellerRegistrationSchema,
+  sellerAccessSchema,
   signupSchema,
   stockUpdateSchema,
   userModerationSchema,
@@ -23,6 +25,18 @@ import {
 
 const categoryId = '10000000-0000-4000-8000-000000000001';
 const ownerId = '20000000-0000-4000-8000-000000000001';
+
+describe('explicit permission decision inputs', () => {
+  it.each([undefined, null, '', 'yes', 'truthy', 1, 0, {}])('rejects an ambiguous approval or invitation decision: %j', (value) => {
+    expect(sellerAccessSchema.safeParse({ id: ownerId, approved: value }).success).toBe(false);
+    expect(groupRespondSchema.safeParse({ group_id: ownerId, accept: value }).success).toBe(false);
+  });
+  it('accepts explicit booleans and known HTML form boolean values', () => {
+    expect(sellerAccessSchema.parse({ id: ownerId, approved: false }).approved).toBe(false);
+    expect(sellerAccessSchema.parse({ id: ownerId, approved: 'true' }).approved).toBe(true);
+    expect(groupRespondSchema.parse({ group_id: ownerId, accept: 'false' }).accept).toBe(false);
+  });
+});
 const listing = {
   title: 'Solar study desk lamp',
   description: 'A rechargeable study lamp constructed during our Form 4 STEM practical project.',

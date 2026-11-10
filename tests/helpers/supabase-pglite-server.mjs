@@ -782,12 +782,13 @@ async function handleTestAdmin(req, res) {
 async function initDatabase() {
   db = new PGlite();
   const bootstrapSql = await fs.readFile(path.join(rootDir, 'supabase', 'tests', 'bootstrap.sql'), 'utf8');
-  const mig1 = await fs.readFile(path.join(rootDir, 'supabase', 'migrations', '202611080001_campusmarket.sql'), 'utf8');
-  const mig2 = await fs.readFile(path.join(rootDir, 'supabase', 'migrations', '202611080002_wise_owl_projects.sql'), 'utf8');
-
   await db.exec(bootstrapSql);
-  await db.exec(mig1);
-  await db.exec(mig2);
+  const migrationDirectory = path.join(rootDir, 'supabase', 'migrations');
+  const migrations = (await fs.readdir(migrationDirectory)).filter((name) => /^\d+_[a-z0-9_]+\.sql$/.test(name)).sort();
+  if (!migrations.length) throw new Error('No database migrations found for the isolated test harness.');
+  for (const migration of migrations) {
+    await db.exec(await fs.readFile(path.join(migrationDirectory, migration), 'utf8'));
+  }
 
   // Introspect public RPC catalog for automatic parameter & return-type marshalling
   const procRes = await db.query(`

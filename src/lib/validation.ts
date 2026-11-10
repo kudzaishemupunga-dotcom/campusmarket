@@ -41,7 +41,11 @@ const strictStockSchema = z.preprocess(
 );
 
 const booleanFieldSchema = z.preprocess(
-  (value) => value === true || value === 'true' || value === 'on' || value === '1',
+  (value) => {
+    if (value === 'true' || value === 'on' || value === '1') return true;
+    if (value === 'false' || value === 'off' || value === '0') return false;
+    return value;
+  },
   z.boolean()
 );
 

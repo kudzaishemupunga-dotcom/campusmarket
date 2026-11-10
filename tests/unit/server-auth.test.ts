@@ -28,6 +28,14 @@ beforeEach(() => {
 });
 
 describe('authoritative server identity', () => {
+  it.each([undefined, null, 'false', 'true', 1])('does not normalize malformed seller approval %s into permission', async (seller_approved) => {
+    mock.single.mockResolvedValue({ data: { ...profile, seller_approved }, error: null });
+    expect((await getSessionContext()).profile?.seller_approved).toBe(false);
+  });
+  it('rejects a profile that does not belong to the verified identity', async () => {
+    mock.single.mockResolvedValue({ data: { ...profile, id: '20000000-0000-4000-8000-000000000002' }, error: null });
+    await expect(requireMember()).rejects.toThrow('approve');
+  });
   it('denies anonymous callers without reading profiles', async () => {
     mock.getUser.mockResolvedValue({ data: { user: null }, error: null });
     await expect(requireMember()).rejects.toThrow('Please sign in');

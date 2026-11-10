@@ -27,6 +27,8 @@ pnpm dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
+For an authorized phone preview on the same private Wi-Fi network, use the explicit `pnpm dev:lan` command and configure the current LAN origin. Follow [mobile and local-network testing](docs/mobile-testing.md); the normal development command stays bound to loopback.
+
 To connect a real development Supabase project, configure `.env.local`, apply both migrations in `supabase/migrations/` in lexical order, configure Auth redirect URLs, and bootstrap the first school administrator via privileged SQL. Follow [Supabase setup](docs/supabase-setup.md) and [Admin setup](docs/admin-setup.md).
 
 ## Environment Variables
@@ -37,6 +39,7 @@ To connect a real development Supabase project, configure `.env.local`, apply bo
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your Supabase publishable/anon API key (all data access enforced by RLS) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only privileged key used strictly after ownership/group verification for private Storage writes |
 | `NEXT_PUBLIC_SITE_URL` | Exact canonical app origin (e.g. `http://127.0.0.1:3000` locally, HTTPS in production) |
+| `CAMPUSMARKET_DEV_ORIGINS` | Optional comma-separated exact origins for local-network development; ignored in production |
 
 Keep `.env.local` out of version control.
 
@@ -65,3 +68,5 @@ pnpm test:e2e    # Isolated PGlite + Chromium end-to-end browser suite (starts f
 ```
 
 See [testing](docs/testing.md), [architecture](docs/architecture.md), [database](docs/database.md), [security](docs/security.md), and [deployment preparation](docs/deployment.md).
+
+The browser suite always starts fresh local servers with fake test credentials and refuses a `PLAYWRIGHT_BASE_URL` override. Its generated accounts and products exist only in the test process. It does not validate hosted Supabase email delivery or authorize public launch.

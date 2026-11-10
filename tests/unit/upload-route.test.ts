@@ -18,6 +18,7 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/server/config', () => ({
   isSupabaseConfigured: mock.configured,
   siteUrl: () => 'https://campus.example',
+  isAllowedRequestOrigin: (origin: string | null) => origin === 'https://campus.example',
 }));
 vi.mock('@/lib/server/auth', () => ({ requireMember: mock.member }));
 vi.mock('@/lib/server/rate-limit', () => ({ checkRateLimit: mock.limit }));
@@ -76,6 +77,25 @@ beforeEach(() => {
 });
 
 describe('verified upload endpoint (POST)', () => {
+  it.each([undefined, null, 'true', 'false', 1, false])('denies independent uploads without a trusted seller approval boolean (%s)', async (seller_approved) => {
+    mock.member.mockResolvedValue({ client: { from: mock.from, rpc: mock.rpc }, profile: { id: userId, role: 'student', verification_status: 'approved', seller_approved } });
+    expect((await POST(request([new File(['pretend'], 'photo.png', { type: 'image/png' })]))).status).toBe(403);
+    expect(mock.storage).not.toHaveBeenCalled();
+  });
+
+  it('denies group uploads if membership lookup errors even when it includes partial membership data', async () => {
+    mock.from.mockImplementation((table: string) => {
+      if (table === 'seller_groups') {
+        const group = { select: vi.fn(), eq: vi.fn(), single: async () => ({ data: { id: groupId, verification_status: 'approved' }, error: null }) };
+        group.select.mockReturnValue(group); group.eq.mockReturnValue(group); return group;
+      }
+      if (table === 'group_members') return { select: () => ({ eq: async () => ({ data: [{ user_id: userId, member_role: 'owner', status: 'approved', can_manage_products: true }], error: { message: 'failed permission lookup' } }) }) };
+      return listingQuery(otherId, [], groupId);
+    });
+    expect((await POST(request([new File(['pretend'], 'photo.png', { type: 'image/png' })]))).status).toBe(403);
+    expect(mock.storage).not.toHaveBeenCalled();
+  });
+
   it('rejects cross-origin requests before loading a user or using privileged storage', async () => {
     const response = await POST(request([], 'https://attacker.example'));
     expect(response.status).toBe(403);
@@ -126,6 +146,7 @@ describe('verified upload endpoint (POST)', () => {
     const response = await POST(request([new File([new Uint8Array(input)], 'project.png', { type: 'image/png' })]));
     expect(response.status).toBe(200);
     expect(mock.upload).toHaveBeenCalledOnce();
+    expect(mock.upload.mock.calls[0][0]).toMatch(new RegExp(`^${userId}/${listingId}/[0-9a-f-]{36}\\.webp$`));
   });
 
   it('rejects more than five files and aggregate image count overflow', async () => {
@@ -196,6 +217,24 @@ describe('choose main photo endpoint (PATCH)', () => {
     mock.rpc.mockResolvedValue({ error: new Error('denied') });
     expect((await PATCH(patchRequest())).status).toBe(403);
   });
+
+  it('denies cross-user and closed-product primary photo changes before the RPC', async () => {
+    mock.from.mockReturnValue(listingQuery(otherId));
+    expect((await PATCH(patchRequest())).status).toBe(403);
+    expect(mock.rpc).not.toHaveBeenCalled();
+    const chain = listingQuery();
+    chain.single.mockResolvedValue({ data: { seller_id: userId, group_id: null, created_by_admin: null, status: 'sold', listing_images: [] }, error: null });
+    mock.from.mockReturnValue(chain);
+    expect((await PATCH(patchRequest())).status).toBe(403);
+    expect(mock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('applies the JSON body cap even without a Content-Length header', async () => {
+    const large = patchRequest({ listingId, imageId, unused: 'x'.repeat(4096) });
+    expect(large.headers.get('content-length')).toBeNull();
+    expect((await PATCH(large)).status).toBe(400);
+    expect(mock.rpc).not.toHaveBeenCalled();
+  });
 });
 
 describe('verified image delete endpoint (DELETE)', () => {
@@ -232,7 +271,7 @@ describe('verified image delete endpoint (DELETE)', () => {
 
   it('deletes owned image metadata first and then removes the private storage object', async () => {
     const storagePath = `${userId}/${listingId}/owned.webp`;
-    const delEq2 = vi.fn(async () => ({ error: null }));
+    const delEq2 = vi.fn(() => ({ select: () => ({ single: async () => ({ data: { id: imageId, storage_path: storagePath }, error: null }) }) }));
     const delEq1 = vi.fn(() => ({ eq: delEq2 }));
     const imageTable = {
       select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: { storage_path: storagePath }, error: null }) }) }) }),
@@ -244,5 +283,20 @@ describe('verified image delete endpoint (DELETE)', () => {
     expect(delEq1).toHaveBeenCalledWith('id', imageId);
     expect(delEq2).toHaveBeenCalledWith('listing_id', listingId);
     expect(mock.remove).toHaveBeenCalledWith([storagePath]);
+  });
+
+  it.each([
+    { data: null, error: null },
+    { data: null, error: { code: 'PGRST116' } },
+    { data: { id: otherId, storage_path: `${userId}/${listingId}/owned.webp` }, error: null },
+  ])('does not remove storage when metadata deletion did not return the authorized image: %j', async (deletion) => {
+    const storagePath = `${userId}/${listingId}/owned.webp`;
+    const imageTable = {
+      select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: { storage_path: storagePath }, error: null }) }) }) }),
+      delete: () => ({ eq: () => ({ eq: () => ({ select: () => ({ single: async () => deletion }) }) }) }),
+    };
+    mock.from.mockImplementation((table: string) => (table === 'listing_images' ? imageTable : listingQuery()));
+    expect((await DELETE(deleteRequest())).status).toBe(403);
+    expect(mock.remove).not.toHaveBeenCalled();
   });
 });

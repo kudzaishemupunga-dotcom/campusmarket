@@ -86,7 +86,7 @@ export async function getPageData(path: string, params: Record<string, string | 
     client.from('group_members').select('*').order('created_at', { ascending: true }),
   ]);
 
-  if (categoriesRes.error || savedRes.error) {
+  if (categoriesRes.error || savedRes.error || groupsRes.error || groupMembersRes.error) {
     throw new Error('The marketplace could not be loaded. Please try again.');
   }
 
@@ -139,9 +139,11 @@ export async function getPageData(path: string, params: Record<string, string | 
     Boolean(targetListingId) ||
     path.startsWith('/admin');
 
-  const rawRequests: RawPurchaseRequest[] = shouldLoadRequests
-    ? (((await client.from('purchase_requests').select('*').order('created_at', { ascending: false }).limit(200)).data ?? []) as RawPurchaseRequest[])
-    : [];
+  const requestsRes = shouldLoadRequests
+    ? await client.from('purchase_requests').select('*').order('created_at', { ascending: false }).limit(200)
+    : { data: [], error: null };
+  if (requestsRes.error) throw new Error('Purchase requests could not be loaded. Please try again.');
+  const rawRequests = (requestsRes.data ?? []) as RawPurchaseRequest[];
 
   const myApprovedGroupIds = preliminaryGroups
     .filter((group) => isApprovedGroupMember(profile, group))
@@ -199,6 +201,7 @@ export async function getPageData(path: string, params: Record<string, string | 
         )
         .map((g) => g.id);
       const memberRes = client.rpc ? await client.rpc('find_school_members', { search_term: rawSearch }) : { data: [] };
+      if ('error' in memberRes && memberRes.error) throw new Error('Search could not be completed. Please try again.');
       const matchingSellerIds = ((memberRes?.data ?? []) as SchoolMemberOption[]).map((m) => m.id);
 
       const orClauses = [
@@ -249,6 +252,7 @@ export async function getPageData(path: string, params: Record<string, string | 
   const missingReqListingIds = [...new Set(rawRequests.map((r) => r.listing_id))].filter((id) => !loadedListingMap.has(id));
   if (missingReqListingIds.length > 0) {
     const extraListings = await client.from('listings').select('id,title,price').in('id', missingReqListingIds);
+    if (extraListings.error) throw new Error('Purchase request products could not be loaded. Please try again.');
     for (const item of (extraListings.data ?? []) as { id: string; title: string; price: string | number }[]) {
       loadedListingMap.set(item.id, { title: item.title, price: String(item.price) });
     }
@@ -313,6 +317,7 @@ export async function getPageData(path: string, params: Record<string, string | 
 
   if ((path === '/seller/group' || path.startsWith('/admin')) && client.rpc) {
     const membersRes = await client.rpc('find_school_members', { search_term: '' });
+    if (membersRes.error) throw new Error('School members could not be loaded. Please try again.');
     result.schoolMembers = ((membersRes?.data ?? []) as SchoolMemberOption[]);
   }
 

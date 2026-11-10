@@ -13,11 +13,13 @@ export const getSessionContext = cache(async () => {
     .select('id,display_name,avatar_path,role,verification_status,seller_type,seller_approved,project_summary,created_at,updated_at')
     .eq('id', user.id)
     .single();
-  if (profileError || !data) return { client, user, profile: null };
+  if (profileError || !data || data.id !== user.id || !['student', 'admin'].includes(data.role) || !['pending', 'approved', 'rejected', 'suspended'].includes(data.verification_status)) {
+    return { client, user, profile: null };
+  }
   const normalized: Profile = {
     ...(data as Profile),
     seller_type: (data as Partial<Profile>).seller_type ?? 'none',
-    seller_approved: Boolean((data as Partial<Profile>).seller_approved),
+    seller_approved: (data as Partial<Profile>).seller_approved === true,
     project_summary: (data as Partial<Profile>).project_summary ?? null,
   };
   return { client, user, profile: normalized };

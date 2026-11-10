@@ -88,6 +88,14 @@ describe('school membership boundary', () => {
 });
 
 describe('seller, group, and ownership boundaries', () => {
+  it('does not make missing group eligibility public', () => {
+    expect(canReadListing(student, { seller_id: otherId, group_id: groupId, status: 'active' })).toBe(false);
+    expect(canReadListing(student, { seller_id: otherId, group_id: groupId, status: 'active' }, [{ ...approvedGroup, verification_status: 'removed', members: [] }])).toBe(false);
+  });
+  it('does not coerce malformed collaborator permission flags to true', () => {
+    const malformedGroup = { ...approvedGroup, members: approvedGroup.members.map((member) => ({ ...member, can_manage_products: 'false' as unknown as boolean })) };
+    expect(canManageGroupProducts(student, malformedGroup)).toBe(false);
+  });
   it('requires seller_approved before independent product creation', () => {
     expect(isApprovedSeller({ ...student, seller_approved: false })).toBe(false);
     expect(() => assertApprovedSeller({ ...student, seller_approved: false })).toThrow(PermissionError);
