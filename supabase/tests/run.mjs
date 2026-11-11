@@ -51,6 +51,7 @@ try {
   await sql(await read('../migrations/202611080001_campusmarket.sql'));
   await sql(await read('../migrations/202611080002_wise_owl_projects.sql'));
   await sql(await read('../migrations/202611090003_authorization_boundaries.sql'));
+  await sql(await read('../migrations/202611110001_owlaid_rate_limit.sql'));
 
   await test('migrations apply cleanly, start with zero products, create private bucket and eight project categories', async () => {
     assert.equal(await scalar('select count(*)::int from public.categories'), 8);
@@ -494,6 +495,49 @@ try {
     await as(bob);
     for (let i = 0; i < 10; i++) await db.query('update public.profiles set display_name=$1 where id=$2', [`Test Bob ${i}`, bob]);
     await denies("update public.profiles set display_name='Exceeded quota' where id=$1", [bob]);
+  });
+
+  await test('owlaid_take_quota restricts execution to service_role, requires approved users, and preserves daily quota on minute-window rejection', async () => {
+    await privileged();
+    await db.query("update public.profiles set verification_status='pending' where id=$1", [pending]);
+    await as(null, 'anon');
+    await denies('select public.owlaid_take_quota($1)', [bob]);
+    await as(bob, 'authenticated');
+    await denies('select public.owlaid_take_quota($1)', [bob]);
+    await denies('select * from public.owlaid_usage');
+
+    await as(null, 'service_role');
+    assert.equal(await scalar('select public.owlaid_take_quota(null)'), false);
+    assert.equal(await scalar('select public.owlaid_take_quota($1)', [pending]), false);
+    assert.equal(await scalar('select public.owlaid_take_quota($1)', [suspended]), false);
+    assert.equal(await scalar('select public.owlaid_take_quota($1)', [unverified]), false);
+
+    for (let i = 0; i < 10; i++) {
+      assert.equal(await scalar('select public.owlaid_take_quota($1)', [bob]), true);
+    }
+    // 11th request within the same minute is denied AND must not increment day_count past 10
+    assert.equal(await scalar('select public.owlaid_take_quota($1)', [bob]), false);
+    assert.equal(await scalar('select public.owlaid_take_quota($1)', [bob]), false);
+    await privileged();
+    assert.equal(await scalar('select day_count from public.owlaid_usage where user_id=$1', [bob]), 10);
+
+    // Expiring the 1-minute window allows another batch while accumulating day_count
+    await db.query("update public.owlaid_usage set minute_window = now() - interval '61 seconds' where user_id=$1", [bob]);
+    await as(null, 'service_role');
+    assert.equal(await scalar('select public.owlaid_take_quota($1)', [bob]), true);
+    await privileged();
+    assert.equal(await scalar('select day_count from public.owlaid_usage where user_id=$1', [bob]), 11);
+
+    // Exhausting the 80/day cap denies requests even after a fresh minute window, until the next UTC day
+    await db.query("update public.owlaid_usage set day_count = 80, minute_window = now() - interval '61 seconds' where user_id=$1", [bob]);
+    await as(null, 'service_role');
+    assert.equal(await scalar('select public.owlaid_take_quota($1)', [bob]), false);
+    await privileged();
+    await db.query("update public.owlaid_usage set day_window = (timezone('utc', now())::date - 1) where user_id=$1", [bob]);
+    await as(null, 'service_role');
+    assert.equal(await scalar('select public.owlaid_take_quota($1)', [bob]), true);
+    await privileged();
+    assert.equal(await scalar('select day_count from public.owlaid_usage where user_id=$1', [bob]), 1);
   });
 
   console.log(`\n${passed} database integration scenarios passed using embedded PostgreSQL. Supabase Auth HTTP, Storage HTTP and hosted configuration are not covered.`);

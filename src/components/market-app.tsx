@@ -300,6 +300,9 @@ function Header({ path }: { path: string }) {
           <Link className={isSellerActive ? 'active' : ''} href="/seller">
             Seller
           </Link>
+          <Link className={path.startsWith('/owlaid') ? 'active' : ''} href="/owlaid">
+            OwlAid
+          </Link>
           <Link className={path === '/about' ? 'active' : ''} href="/about">
             About
           </Link>
@@ -380,6 +383,9 @@ function Header({ path }: { path: string }) {
               Seller Dashboard
             </Link>
           )}
+          <Link href="/owlaid" onClick={() => setMenu(false)}>
+            OwlAid
+          </Link>
           <Link href="/about" onClick={() => setMenu(false)}>
             About
           </Link>
@@ -456,6 +462,7 @@ function Footer() {
           <Link href="/marketplace">Marketplace</Link>
           <Link href="/seller">Seller Portal</Link>
           <Link href="/projects">Projects</Link>
+          <Link href="/owlaid">OwlAid</Link>
           <Link href="/rules">School Rules</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/about">Project Information</Link>

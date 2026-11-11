@@ -1,0 +1,122 @@
+.page {
+  --brown: #2c180b;
+  --brown2: #4a2a14;
+  --gold: #fed106;
+  --cream: #faf6ee;
+  --ink: #26170c;
+  --muted: #72604e;
+  --border: #e8dfd3;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at 2% 12%, #fff4bf 0, transparent 25%),
+    radial-gradient(circle at 96% 91%, #e9e0d3 0, transparent 22%), var(--cream);
+  color: var(--ink);
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.page button, .page textarea { font: inherit; }
+.topbar { background: var(--brown); color: #f8eccc; border-bottom: 2px solid var(--gold); }
+.topbarInner { max-width: 1200px; margin: auto; padding: 7px 20px; display: flex; justify-content: space-between; gap: 12px; align-items: center; font-size: 11px; font-weight: 750; letter-spacing: .09em; }
+.motto { color: var(--gold); letter-spacing: .01em; }
+.header { color: #fff; background: linear-gradient(125deg, var(--brown2), var(--brown)); box-shadow: 0 7px 20px #321b1031; }
+.headerInner { max-width: 1200px; margin: auto; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 15px; }
+.logo { display: grid; place-items: center; width: 61px; height: 61px; font-size: 31px; border-radius: 17px; background: linear-gradient(135deg, #fff6c8, var(--gold)); border: 2px solid #fff; box-shadow: 0 5px 18px #0004; flex: none; }
+.schoolName { font-size: 11px; letter-spacing: .17em; font-weight: 750; color: #f5e5c8; }
+.brand h1 { margin: 1px 0 0; font-size: clamp(25px, 3vw, 33px); letter-spacing: -.035em; color: var(--gold); line-height: 1.2; }
+.brand h1 span { font-size: 15px; vertical-align: top; color: #f8eccc; margin-left: 2px; }
+.brand p { font-size: 12px; color: #e4d4c3; margin: 4px 0 0; }
+.headerActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.marketLink { display: inline-flex; align-items: center; justify-content: center; background: #ffffff17; border: 1px solid #f8eccc52; color: #fff; padding: 8px 13px; border-radius: 99px; font-weight: 750; font-size: 11px; letter-spacing: .02em; transition: background .15s; white-space: nowrap; }
+.marketLink:hover { background: #ffffff2b; }
+.clubBadge { background: #fed1061c; border: 1px solid #fed1068a; color: var(--gold); padding: 8px 11px; border-radius: 99px; font-weight: 750; letter-spacing: .05em; font-size: 10px; text-align: center; }
+.layout { width: min(1200px, calc(100% - 40px)); margin: 28px auto 35px; display: grid; grid-template-columns: 300px minmax(0, 1fr); align-items: stretch; gap: 22px; flex: 1; }
+.sidebar, .chatCard { background: #fff; border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 15px 42px #2c180b14; overflow: hidden; }
+.sidebar { display: flex; flex-direction: column; }
+.sidebarIntro { background: linear-gradient(125deg, #583621, var(--brown)); color: #fff; padding: 25px 22px; border-bottom: 4px solid var(--gold); }
+.eyebrow { letter-spacing: .15em; font-size: 10px; font-weight: 800; color: var(--gold); }
+.sidebarIntro h2 { color: #fff; font-size: 23px; font-weight: 750; margin: 10px 0 7px; letter-spacing: -.035em; }
+.sidebarIntro p { color: #f2e7d9; font-size: 12px; line-height: 1.65; }
+.sideSection { padding: 19px 19px 20px; border-bottom: 1px solid var(--border); }
+.sideSection h3 { font-size: 11px; color: #8b6440; text-transform: uppercase; letter-spacing: .10em; font-weight: 800; margin: 0 0 11px; }
+.quickList { display: flex; flex-direction: column; gap: 8px; }
+.quickButton { cursor: pointer; width: 100%; background: #fbf8f1; border: 1px solid #e9dfd2; border-radius: 10px; color: var(--brown); display: flex; align-items: center; padding: 10px 11px; gap: 9px; font-weight: 650; text-align: left; font-size: 12px; transition: background .15s, transform .15s; }
+.quickButton span:nth-child(2) { flex: 1; }
+.quickButton:hover:not(:disabled) { background: #fff1b1; transform: translateX(2px); }
+.quickButton:disabled { opacity: .6; cursor: not-allowed; }
+.factList { margin: 0; }
+.factList div { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 12px; border-bottom: 1px dashed #eee8df; }
+.factList div:last-child { border-bottom: none; }
+.factList dt { color: var(--muted); }
+.factList dd { margin: 0; text-align: right; font-weight: 700; color: var(--brown); }
+.note { padding: 17px 19px; font-size: 11px; line-height: 1.6; color: #87725e; background: #fffdf6; margin-top: auto; }
+.chatCard { height: min(740px, calc(100vh - 225px)); min-height: 520px; display: flex; flex-direction: column; }
+.chatTop { flex: none; padding: 15px 20px; border-bottom: 1px solid var(--border); background: #fffdfa; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.chatTitle { display: flex; align-items: center; gap: 11px; }
+.chatIcon { width: 37px; height: 37px; background: #f5e6cc; border-radius: 11px; display: grid; place-items: center; font-size: 21px; }
+.chatTitle strong { display: block; font-size: 14px; }
+.chatTitle small { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.chatActions { display: flex; align-items: center; gap: 9px; }
+.status { border: 1px solid #dce5ce; border-radius: 40px; color: #3a5a38; background: #f5f9ed; font-size: 11px; padding: 5px 9px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.statusDot { width: 7px; height: 7px; background: #48a767; border-radius: 50%; }
+.clearButton { border: 1px solid #e6dccf; border-radius: 8px; background: #fff; color: #72573e; cursor: pointer; padding: 6px 9px; font-size: 11px; font-weight: 750; }
+.clearButton:disabled { opacity: .45; cursor: not-allowed; }
+.chatMessages { flex: 1; min-height: 0; overflow-y: auto; padding: 23px 21px; display: flex; flex-direction: column; gap: 18px; background: linear-gradient(#fffefaee, #fcf9f3f2); }
+.welcome { text-align: center; margin: auto; max-width: 450px; padding: 25px 8px; }
+.welcomeOwl { font-size: 43px; width: 86px; height: 86px; margin: auto auto 17px; display: grid; place-items: center; border-radius: 25px; background: #fff4cb; box-shadow: 0 8px 30px #2c180b0e; }
+.welcome h2 { font-size: 22px; color: var(--brown); margin: 0 0 10px; letter-spacing: -.03em; }
+.welcome p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.welcomeChips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 19px; }
+.welcomeChips button { padding: 9px 13px; border: 1px solid #e6d9be; background: #fff; border-radius: 30px; color: var(--brown); font-size: 12px; cursor: pointer; font-weight: 700; }
+.welcomeChips button:hover:not(:disabled) { background: #fff5d5; }
+.messageRow { display: flex; align-items: flex-start; gap: 10px; max-width: min(88%, 600px); }
+.fromUser { align-self: flex-end; flex-direction: row-reverse; }
+.fromBot { align-self: flex-start; }
+.avatar { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; font-size: 17px; color: var(--gold); background: var(--brown); border: 2px solid var(--gold); }
+.fromUser .avatar { background: var(--gold); border-color: #fff; color: var(--brown); font-size: 10px; font-weight: 800; }
+.messageBody { min-width: 0; }
+.messageText { border-radius: 14px; border-top-left-radius: 4px; padding: 12px 15px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--border); box-shadow: 0 2px 9px #2c180b0d; }
+.fromBot .messageText { background: #fff; }
+.fromUser .messageText { background: var(--brown); border-color: var(--brown); color: #fff; border-radius: 14px; border-top-right-radius: 4px; }
+.messageSource { display: inline-block; font-size: 10px; color: #8e7b66; margin: 5px 0 0 4px; }
+.typing { display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border); padding: 13px 16px; border-radius: 12px; }
+.typing span { height: 7px; width: 7px; background: #b9944b; border-radius: 50%; animation: bounce 1s infinite alternate; }
+.typing span:nth-child(2) { animation-delay: .15s; }
+.typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { to { transform: translateY(-4px); opacity: .45; } }
+.composer { border-top: 1px solid var(--border); padding: 13px 18px 5px; background: #fff; display: flex; align-items: center; gap: 10px; }
+.composer textarea { background: #faf8f4; color: var(--ink); resize: none; flex: 1; width: 100%; min-width: 0; border: 1.5px solid #e6dccc; border-radius: 11px; padding: 11px 12px; font-size: 13px; line-height: 1.4; outline: none; }
+.composer textarea:focus { border-color: #aa8544; box-shadow: 0 0 0 3px #fed10633; }
+.composer textarea:disabled { opacity: .65; }
+.sendButton { border: 0; background: var(--brown); color: var(--gold); font-size: 12px; font-weight: 800; border-radius: 11px; cursor: pointer; padding: 14px 17px; white-space: nowrap; }
+.sendButton:hover:not(:disabled) { background: var(--brown2); }
+.sendButton:disabled { opacity: .55; cursor: not-allowed; }
+.chatFooter { padding: 4px 18px 12px; text-align: center; font-size: 10px; color: #8b7764; background: #fff; }
+.footer { text-align: center; border-top: 1px solid #e4d9ca; font-size: 11px; color: #88745f; padding: 14px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; width: min(740px, calc(100% - 24px)); margin-top: 17px; }
+  .sidebar { display: none; }
+  .chatCard { min-height: 540px; height: calc(100dvh - 215px); max-height: 820px; }
+  .marketLink, .clearButton, .welcomeChips button, .sendButton { min-height: 44px; }
+  .composer textarea { font-size: 16px; min-height: 44px; }
+}
+@media (max-width: 520px) {
+  .topbarInner { font-size: 9px; padding: 7px 12px; }
+  .motto { display: none; }
+  .headerInner { padding: 14px; gap: 10px; }
+  .clubBadge { display: none; }
+  .logo { width: 49px; height: 49px; font-size: 25px; }
+  .brand p { font-size: 10px; }
+  .schoolName { font-size: 9px; }
+  .layout { width: calc(100% - 12px); margin: 7px auto; }
+  .chatCard { border-radius: 12px; height: calc(100dvh - 180px); min-height: 420px; }
+  .chatTop { padding: 12px; }
+  .chatMessages { padding: 16px 11px; }
+  .messageRow { max-width: 94%; }
+  .chatTitle small, .status { display: none; }
+  .composer { padding: 10px 10px 3px; }
+  .sendButton { padding: 13px 11px; }
+  .chatFooter { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .typing span { animation: none; } .quickButton { transition: none; } }

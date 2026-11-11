@@ -512,3 +512,50 @@ test('Mobile audit: populated catalog, filters, product details, forms and dialo
     await context.close();
   }
 });
+
+test('OwlAid 4.0: navigation link, signed-out 401 guard, signed-in school facts, and mobile layout work end to end', async ({
+  page,
+}) => {
+  await page.context().clearCookies();
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto('/');
+
+  // Shared navigation includes OwlAid link
+  const navOwlAid = page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'OwlAid' });
+  await expect(navOwlAid).toBeVisible();
+  await navOwlAid.click();
+  await expect(page).toHaveURL(/\/owlaid$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('OwlAid');
+
+  // Signed-out POST to /api/owlaid/chat returns 401 and UI surfaces sign-in notice
+  const unauthRes = await page.request.post('/api/owlaid/chat', {
+    data: { message: 'What is the school motto?', history: [] },
+  });
+  expect(unauthRes.status()).toBe(401);
+
+  await page.getByRole('button', { name: 'School motto' }).click();
+  await expect(page.getByRole('log')).toContainText('Sign in to your school account to use OwlAid.');
+
+  // Sign in as approved learner and verify OwlAid local facts, unverified notices, and timetable refusal
+  await signIn(page, 'farai@wiseowl.test');
+  await page.goto('/owlaid');
+  await page.getByRole('button', { name: 'School motto' }).click();
+  await expect(page.getByRole('log')).toContainText('Going an Extra Mile');
+  await expect(page.getByRole('log')).toContainText('School knowledge');
+
+  await page.getByLabel('Ask OwlAid a question').fill('Who is the headmaster and what are the school hours?');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  await expect(page.getByRole('log')).toContainText('Mr. S. Dangah');
+  await expect(page.getByRole('log')).toContainText('unverified');
+
+  await page.getByLabel('Ask OwlAid a question').fill('When are the exam dates?');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  await expect(page.getByRole('log')).toContainText("not in OwlAid's verified knowledge base yet");
+
+  // Verify mobile layout at 360px, 390px, and 768px has zero horizontal overflow
+  for (const width of [360, 390, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    expect(overflow, `/owlaid must not overflow horizontally at ${width}px`).toBe(false);
+  }
+});
