@@ -3,6 +3,13 @@ import { getLocalAnswer } from "../src/lib/owlaid/fallback";
 import { validHistory } from "../src/lib/owlaid/types";
 
 describe("OwlAid offline facts", () => {
+  it("returns an English-only greeting for default greetings", () => {
+    const reply = getLocalAnswer("Hello!") ?? "";
+    expect(reply).toBe(
+      "Hello! I'm OwlAid 🦉. Ask me about Wise Owl High School Westgate, its mission, clubs, academics, and more."
+    );
+    expect(getLocalAnswer("Good morning")).toBe(reply);
+  });
   it("answers the school motto", () => expect(getLocalAnswer("What is the motto?")).toContain("Going an Extra Mile"));
   it("answers multiple subjects", () => {
     const reply = getLocalAnswer("What is the mission and vision?") ?? "";

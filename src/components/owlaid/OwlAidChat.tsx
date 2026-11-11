@@ -150,7 +150,7 @@ export default function OwlAidChat() {
             {messages.length === 0 && (
               <div className={styles.welcome}>
                 <div className={styles.welcomeOwl} aria-hidden="true">🦉</div>
-                <h2>Mhoroi! Welcome to OwlAid.</h2>
+                <h2>Hello! Welcome to OwlAid.</h2>
                 <p>I can answer questions about Wise Owl, its academics, clubs and school values. Ask me anything to get started.</p>
                 <div className={styles.welcomeChips}>
                   <button type="button" onClick={() => void submitQuestion("What is the school motto?")} disabled={busy}>School motto</button>

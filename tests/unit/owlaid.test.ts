@@ -254,6 +254,9 @@ describe('POST /api/owlaid/chat route handler', () => {
     const sentPromptBody = String(geminiCallInit?.body ?? '');
     expect(sentPromptBody).not.toContain('Private Student Name');
     expect(sentPromptBody).not.toContain('student@wiseowl.test');
+    expect(sentPromptBody).toContain(
+      'Always respond in natural, professional English, including when users submit questions in Shona'
+    );
     expect((geminiCallInit?.headers as Record<string, string>)['x-goog-api-key']).toBe('test-server-only-gemini-key');
   });
 
@@ -283,7 +286,7 @@ describe('OwlAid direct helper & client secret isolation', () => {
     await expect(askGemini('Hello', [])).rejects.toThrow(/not configured/i);
   });
 
-  it('never references GEMINI_API_KEY or NEXT_PUBLIC_GEMINI in client components', () => {
+  it('never references GEMINI_API_KEY or NEXT_PUBLIC_GEMINI in client components and uses English-only welcome copy', () => {
     const clientCode = fs.readFileSync(
       path.join(process.cwd(), 'src', 'components', 'owlaid', 'OwlAidChat.tsx'),
       'utf8'
@@ -291,5 +294,6 @@ describe('OwlAid direct helper & client secret isolation', () => {
     expect(clientCode).not.toContain('GEMINI_API_KEY');
     expect(clientCode).not.toContain('NEXT_PUBLIC_GEMINI');
     expect(clientCode).not.toContain('admin123');
+    expect(clientCode).toContain('<h2>Hello! Welcome to OwlAid.</h2>');
   });
 });

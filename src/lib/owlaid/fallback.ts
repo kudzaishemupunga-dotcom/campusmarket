@@ -39,7 +39,7 @@ export function getLocalAnswer(question: string): string | null {
   if (/\b(timetable|schedule|calendar|term dates?|exam(?:s|ination)? dates?|next (?:school )?event|school song|school anthem)\b/i.test(normalized)) {
     return "That resource is not in OwlAid's verified knowledge base yet. Please check with your teacher or school office; the Resources tab will be connected in a later phase.";
   }
-  if (/^(hi|hello|hey|mhoro|good morning|good afternoon|good evening)[!.? ]*$/i.test(normalized)) {
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening)[!.? ]*$/i.test(normalized)) {
     return `Hello! I'm OwlAid 🦉. Ask me about ${school.name}, its mission, clubs, academics, and more.`;
   }
   return null;
