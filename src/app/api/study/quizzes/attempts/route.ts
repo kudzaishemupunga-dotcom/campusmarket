@@ -4,7 +4,7 @@ import { getOwlAidUser } from '@/lib/owlaid/auth';
 import { isSupabaseConfigured } from '@/lib/server/config';
 import { isMissingStudyTableError } from '@/lib/server/hub-data';
 import { hasValidOrigin } from '@/lib/server/request-guards';
-import { serverSupabase } from '@/lib/server/supabase';
+import { studyServiceSupabase } from '@/lib/server/supabase';
 import { gradeQuizSubmission, quizAttemptSubmissionSchema } from '@/lib/study/scoring';
 import type { QuizAttemptRecord } from '@/lib/study/types';
 
@@ -53,6 +53,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Ensure tier-restricted quiz submissions only contain questions from the selected tier
+    if (input.tier !== 'all') {
+      const tierMismatch = grading.results.some((item) => item.difficulty !== input.tier);
+      if (tierMismatch) {
+        return json({ error: 'Submitted questions do not match the selected Cambridge tier.' }, 400);
+      }
+    }
+
     const fallbackAttempt: QuizAttemptRecord = {
       id: `local-${Date.now()}`,
       subject_id: input.subjectId,
@@ -71,8 +79,17 @@ export async function POST(request: NextRequest) {
       return json({ attempt: fallbackAttempt, grading, persisted: false }, 201);
     }
 
-    const client = await serverSupabase();
-    const { data, error } = await client
+    // Hardened Migration 005 revokes direct authenticated INSERT on study_quiz_attempts.
+    // Validated server-graded attempts are written strictly via the server-only service-role client
+    // using the verified `user.id` from `getOwlAidUser()` and server-computed score fields.
+    let serviceClient: ReturnType<typeof studyServiceSupabase>;
+    try {
+      serviceClient = studyServiceSupabase();
+    } catch {
+      return json({ error: 'Study persistence service is not configured.' }, 503);
+    }
+
+    const { data, error } = await serviceClient
       .from('study_quiz_attempts')
       .insert({
         user_id: user.id,

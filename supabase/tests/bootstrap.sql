@@ -15,6 +15,7 @@ create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 grant usage on schema auth, storage, public to anon, authenticated, service_role;
+alter default privileges in schema public grant select, insert, update, delete on tables to service_role;
 grant execute on function auth.uid() to anon, authenticated, service_role;
 create table storage.buckets (
   id text primary key,

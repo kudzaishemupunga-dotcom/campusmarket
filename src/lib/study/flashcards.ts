@@ -682,6 +682,10 @@ export const CURATED_FLASHCARDS: readonly CuratedFlashcard[] = [
   ),
 ];
 
+export const CURATED_CARD_BY_KEY: ReadonlyMap<string, CuratedFlashcard> = new Map(
+  CURATED_FLASHCARDS.map((item) => [item.cardKey, item])
+);
+
 export function combineFlashcards(customCards: readonly CustomFlashcardRecord[]): StudyFlashcardItem[] {
   const customItems: StudyFlashcardItem[] = customCards.map((item) => ({
     cardKey: `custom:${item.id}`,

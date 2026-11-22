@@ -1,6 +1,10 @@
 -- Wise Owl Hub 5.0 (Project Leviathan) — Student Study Progress, Quizzes & Flashcards.
 -- Isolated and additive: does not alter or delete any existing CampusMarket or OwlAid tables.
 -- Review and apply after migrations 202611080001 through 202611110001.
+-- SECURITY NOTE: Before using this migration with the deployed application, verify that
+-- /api/study/quizzes/attempts and /api/study/flashcards/review authenticate the
+-- requester and use a properly secured SERVER-SIDE service-role database client
+-- for validated writes. Never expose that credential to the browser.
 begin;
 
 -- 1. Server-graded Cambridge IGCSE quiz attempts (immutable per-student records)
@@ -184,9 +188,11 @@ revoke all on table public.study_quiz_attempts from public, anon, authenticated;
 revoke all on table public.study_flashcards from public, anon, authenticated;
 revoke all on table public.study_flashcard_reviews from public, anon, authenticated;
 
-grant select, insert, delete on table public.study_quiz_attempts to authenticated;
+-- Authenticated clients may read/delete their own history, but not forge server-graded attempts.
+grant select, delete on table public.study_quiz_attempts to authenticated;
 grant select, insert, update, delete on table public.study_flashcards to authenticated;
-grant select, insert, update, delete on table public.study_flashcard_reviews to authenticated;
+-- Review schedule changes must be calculated by an authenticated server API.
+grant select on table public.study_flashcard_reviews to authenticated;
 
 drop policy if exists study_quiz_attempts_owner_select on public.study_quiz_attempts;
 drop policy if exists study_quiz_attempts_owner_insert on public.study_quiz_attempts;
@@ -194,9 +200,7 @@ drop policy if exists study_quiz_attempts_owner_delete on public.study_quiz_atte
 create policy study_quiz_attempts_owner_select on public.study_quiz_attempts
   for select to authenticated
   using (private.is_approved() and user_id = auth.uid());
-create policy study_quiz_attempts_owner_insert on public.study_quiz_attempts
-  for insert to authenticated
-  with check (private.is_approved() and user_id = auth.uid());
+-- No client INSERT policy: validated server grading must write quiz attempts.
 create policy study_quiz_attempts_owner_delete on public.study_quiz_attempts
   for delete to authenticated
   using (private.is_approved() and user_id = auth.uid());
@@ -226,15 +230,6 @@ drop policy if exists study_flashcard_reviews_owner_delete on public.study_flash
 create policy study_flashcard_reviews_owner_select on public.study_flashcard_reviews
   for select to authenticated
   using (private.is_approved() and user_id = auth.uid());
-create policy study_flashcard_reviews_owner_insert on public.study_flashcard_reviews
-  for insert to authenticated
-  with check (private.is_approved() and user_id = auth.uid());
-create policy study_flashcard_reviews_owner_update on public.study_flashcard_reviews
-  for update to authenticated
-  using (private.is_approved() and user_id = auth.uid())
-  with check (private.is_approved() and user_id = auth.uid());
-create policy study_flashcard_reviews_owner_delete on public.study_flashcard_reviews
-  for delete to authenticated
-  using (private.is_approved() and user_id = auth.uid());
+-- No client write policies: study review changes must be validated by the server.
 
 commit;

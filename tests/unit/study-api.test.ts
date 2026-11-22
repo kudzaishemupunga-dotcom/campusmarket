@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Profile } from '@/lib/types';
@@ -5,6 +7,7 @@ import type { Profile } from '@/lib/types';
 const mock = vi.hoisted(() => ({
   getSessionContext: vi.fn(),
   serverSupabase: vi.fn(),
+  studyServiceSupabase: vi.fn(),
   isSupabaseConfigured: vi.fn(),
 }));
 
@@ -14,6 +17,7 @@ vi.mock('@/lib/server/auth', () => ({
 }));
 vi.mock('@/lib/server/supabase', () => ({
   serverSupabase: mock.serverSupabase,
+  studyServiceSupabase: mock.studyServiceSupabase,
 }));
 vi.mock('@/lib/server/config', async () => {
   const actual = await vi.importActual<typeof import('@/lib/server/config')>('@/lib/server/config');
@@ -71,6 +75,8 @@ beforeEach(() => {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test');
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'sb_secret_test');
   mock.isSupabaseConfigured.mockReturnValue(true);
+  mock.serverSupabase.mockReset();
+  mock.studyServiceSupabase.mockReset();
   mock.getSessionContext.mockResolvedValue({
     user: { id: approvedProfile.id, email: 'student@wiseowl.test' },
     profile: approvedProfile,
@@ -164,7 +170,7 @@ describe('OwlAid 5.0 IGCSE Study Mode API', () => {
   });
 });
 
-describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
+describe('Study Progress, Quizzes & Flashcards API hardened security boundaries', () => {
   it('enforces 401 for unauthenticated callers and 403 for untrusted origins across all study endpoints', async () => {
     mock.getSessionContext.mockResolvedValue({ user: null, profile: null });
 
@@ -226,7 +232,7 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
     ).toBe(403);
   });
 
-  it('grades quiz submissions authoritatively on the server and rejects subject mismatches', async () => {
+  it('rejects client-forged quiz scores/user_id and writes server-graded attempts strictly through service-role client', async () => {
     const insertedRow = {
       id: '30000000-0000-4000-8000-000000000010',
       subject_id: 'biology',
@@ -243,9 +249,25 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
     const insertSpy = vi.fn().mockReturnValue({
       select: () => ({ single: async () => ({ data: insertedRow, error: null }) }),
     });
-    mock.serverSupabase.mockResolvedValue({
+    mock.studyServiceSupabase.mockReturnValue({
       from: () => ({ insert: insertSpy }),
     });
+
+    // Rejects forged client fields (score, user_id, grade_band) via strict Zod schema
+    const forged = await postAttempt(
+      makeJsonRequest('http://127.0.0.1:3000/api/study/quizzes/attempts', 'POST', {
+        subjectId: 'biology',
+        tier: 'all',
+        mode: 'practice',
+        durationSeconds: 10,
+        score: 99,
+        user_id: '99999999-9999-4999-8999-999999999999',
+        grade_band: 'A*',
+        answers: [{ questionId: 'bio-01', selectedIndex: 2 }],
+      })
+    );
+    expect(forged.status).toBe(400);
+    expect(insertSpy).not.toHaveBeenCalled();
 
     // Rejects submitting a physics question under biology
     const mismatch = await postAttempt(
@@ -258,6 +280,18 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
       })
     );
     expect(mismatch.status).toBe(400);
+
+    // Rejects submitting an extended question under a core-only attempt
+    const tierMismatch = await postAttempt(
+      makeJsonRequest('http://127.0.0.1:3000/api/study/quizzes/attempts', 'POST', {
+        subjectId: 'biology',
+        tier: 'core',
+        mode: 'practice',
+        durationSeconds: 12,
+        answers: [{ questionId: 'bio-02', selectedIndex: 1 }], // bio-02 is extended
+      })
+    );
+    expect(tierMismatch.status).toBe(400);
 
     // Server computes authoritative score (bio-01 correct=2, bio-02 correct=1; submit 2 and 0 => 1/2 = 50% D)
     const okRes = await postAttempt(
@@ -278,6 +312,8 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
     expect(body.grading.score).toBe(1);
     expect(body.grading.percentage).toBe(50);
     expect(body.grading.gradeBand).toBe('D');
+    expect(mock.serverSupabase).not.toHaveBeenCalled();
+    expect(mock.studyServiceSupabase).toHaveBeenCalledTimes(1);
     expect(insertSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         user_id: approvedProfile.id,
@@ -287,6 +323,21 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
         grade_band: 'D',
       })
     );
+
+    // Fails closed with 503 if server service-role client is not configured
+    mock.studyServiceSupabase.mockImplementationOnce(() => {
+      throw new Error('Study write service is not configured.');
+    });
+    const noKeyRes = await postAttempt(
+      makeJsonRequest('http://127.0.0.1:3000/api/study/quizzes/attempts', 'POST', {
+        subjectId: 'biology',
+        tier: 'all',
+        mode: 'practice',
+        durationSeconds: 10,
+        answers: [{ questionId: 'bio-01', selectedIndex: 2 }],
+      })
+    );
+    expect(noKeyRes.status).toBe(503);
   });
 
   it('degrades gracefully when the study migration table has not yet been applied (42P01)', async () => {
@@ -312,7 +363,7 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
     expect(body.migrationRequired).toBe(true);
   });
 
-  it('blocks personal contact info in custom flashcards and supports spaced-repetition review upsert', async () => {
+  it('blocks personal contact info in custom flashcards and writes validated review schedules via service-role client', async () => {
     const blocked = await postFlashcard(
       makeJsonRequest('http://127.0.0.1:3000/api/study/flashcards', 'POST', {
         subjectId: 'chemistry',
@@ -323,6 +374,60 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
     );
     expect(blocked.status).toBe(400);
 
+    // Rejects forged client spaced-repetition fields (box, interval_days, user_id)
+    const forgedReview = await postReview(
+      makeJsonRequest('http://127.0.0.1:3000/api/study/flashcards/review', 'POST', {
+        cardKey: 'curated:fc-chem-1',
+        subjectId: 'chemistry',
+        rating: 'good',
+        box: 5,
+        interval_days: 365,
+        user_id: '99999999-9999-4999-8999-999999999999',
+      })
+    );
+    expect(forgedReview.status).toBe(400);
+
+    // Rejects nonexistent curated card keys (404) and subject mismatches (400)
+    const missingCurated = await postReview(
+      makeJsonRequest('http://127.0.0.1:3000/api/study/flashcards/review', 'POST', {
+        cardKey: 'curated:fc-does-not-exist',
+        subjectId: 'chemistry',
+        rating: 'good',
+      })
+    );
+    expect(missingCurated.status).toBe(404);
+
+    const wrongSubject = await postReview(
+      makeJsonRequest('http://127.0.0.1:3000/api/study/flashcards/review', 'POST', {
+        cardKey: 'curated:fc-chem-1',
+        subjectId: 'biology',
+        rating: 'good',
+      })
+    );
+    expect(wrongSubject.status).toBe(400);
+
+    // Rejects reviewing another student's / nonexistent custom flashcard (404 via user-scoped RLS read)
+    mock.serverSupabase.mockResolvedValueOnce({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              limit: async () => ({ data: [], error: null }),
+            }),
+          }),
+        }),
+      }),
+    });
+    const unownedCustom = await postReview(
+      makeJsonRequest('http://127.0.0.1:3000/api/study/flashcards/review', 'POST', {
+        cardKey: 'custom:20000000-0000-4000-8000-000000000099',
+        subjectId: 'chemistry',
+        rating: 'good',
+      })
+    );
+    expect(unownedCustom.status).toBe(404);
+
+    // Valid curated card review reads via authenticated client and upserts strictly via service-role client
     const savedReview = {
       card_key: 'curated:fc-chem-1',
       subject_id: 'chemistry',
@@ -335,7 +440,12 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
       next_review_at: '2026-11-23T12:00:00.000Z',
       reviewed_at: '2026-11-22T12:00:00.000Z',
     };
-    mock.serverSupabase.mockResolvedValue({
+    const upsertSpy = vi.fn().mockReturnValue({
+      select: () => ({
+        single: async () => ({ data: savedReview, error: null }),
+      }),
+    });
+    mock.serverSupabase.mockResolvedValueOnce({
       from: () => ({
         select: () => ({
           eq: () => ({
@@ -344,12 +454,10 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
             }),
           }),
         }),
-        upsert: () => ({
-          select: () => ({
-            single: async () => ({ data: savedReview, error: null }),
-          }),
-        }),
       }),
+    });
+    mock.studyServiceSupabase.mockReturnValueOnce({
+      from: () => ({ upsert: upsertSpy }),
     });
 
     const reviewRes = await postReview(
@@ -364,5 +472,36 @@ describe('Study Progress, Quizzes & Flashcards API security boundaries', () => {
     expect(body.persisted).toBe(true);
     expect(body.review.box).toBe(1);
     expect(body.review.interval_days).toBe(1);
+    expect(upsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: approvedProfile.id,
+        card_key: 'curated:fc-chem-1',
+        subject_id: 'chemistry',
+        box: 1,
+        interval_days: 1,
+        last_rating: 'good',
+      }),
+      { onConflict: 'user_id,card_key' }
+    );
+  });
+
+  it('never exposes SUPABASE_SERVICE_ROLE_KEY or studyServiceSupabase in client components', () => {
+    const componentsDir = path.join(process.cwd(), 'src', 'components');
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (/\.(ts|tsx)$/.test(entry.name)) files.push(full);
+      }
+    };
+    walk(componentsDir);
+    for (const file of files) {
+      const code = fs.readFileSync(file, 'utf8');
+      expect(code).not.toContain('process.env.SUPABASE_SERVICE_ROLE_KEY');
+      expect(code).not.toContain('NEXT_PUBLIC_SUPABASE_SERVICE_ROLE');
+      expect(code).not.toContain('studyServiceSupabase');
+      expect(code).not.toContain('storageSupabase');
+    }
   });
 });

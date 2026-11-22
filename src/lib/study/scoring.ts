@@ -94,21 +94,25 @@ export function gradeQuizSubmission(answers: readonly QuizAnswerSubmission[]): Q
 
 const studySubjectEnum = z.enum(STUDY_SUBJECT_IDS);
 
-export const quizAttemptSubmissionSchema = z.object({
-  subjectId: z.union([studySubjectEnum, z.literal('mixed')]),
-  tier: z.enum(['all', 'core', 'extended']).default('all'),
-  mode: z.enum(['practice', 'exam']).default('practice'),
-  durationSeconds: z.number().int().min(0).max(7200).default(0),
-  answers: z
-    .array(
-      z.object({
-        questionId: z.string().trim().min(2).max(60),
-        selectedIndex: z.number().int().min(0).max(3),
-      })
-    )
-    .min(1, 'Answer at least one question before submitting.')
-    .max(64, 'Too many quiz answers in a single attempt.'),
-});
+export const quizAttemptSubmissionSchema = z
+  .object({
+    subjectId: z.union([studySubjectEnum, z.literal('mixed')]),
+    tier: z.enum(['all', 'core', 'extended']).default('all'),
+    mode: z.enum(['practice', 'exam']).default('practice'),
+    durationSeconds: z.number().int().min(0).max(7200).default(0),
+    answers: z
+      .array(
+        z
+          .object({
+            questionId: z.string().trim().min(2).max(60),
+            selectedIndex: z.number().int().min(0).max(3),
+          })
+          .strict()
+      )
+      .min(1, 'Answer at least one question before submitting.')
+      .max(64, 'Too many quiz answers in a single attempt.'),
+  })
+  .strict();
 
 const safeStudyText = (label: string, min: number, max: number) =>
   z
@@ -122,24 +126,28 @@ const safeStudyText = (label: string, min: number, max: number) =>
       `Do not include email addresses or phone numbers in ${label}.`
     );
 
-export const customFlashcardCreateSchema = z.object({
-  subjectId: studySubjectEnum,
-  topic: safeStudyText('the topic', 2, 80),
-  front: safeStudyText('the question/prompt side', 3, 400),
-  back: safeStudyText('the answer side', 3, 800),
-  hint: z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? null : value ?? null),
-    safeStudyText('the hint', 2, 240).nullable().default(null)
-  ),
-});
+export const customFlashcardCreateSchema = z
+  .object({
+    subjectId: studySubjectEnum,
+    topic: safeStudyText('the topic', 2, 80),
+    front: safeStudyText('the question/prompt side', 3, 400),
+    back: safeStudyText('the answer side', 3, 800),
+    hint: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? null : value ?? null),
+      safeStudyText('the hint', 2, 240).nullable().default(null)
+    ),
+  })
+  .strict();
 
-export const flashcardReviewSchema = z.object({
-  cardKey: z
-    .string()
-    .trim()
-    .min(3)
-    .max(120)
-    .regex(/^(curated:[a-z0-9-]+|custom:[0-9a-f-]{36})$/i, 'Choose a valid flashcard.'),
-  subjectId: studySubjectEnum,
-  rating: z.enum(['again', 'hard', 'good', 'easy']),
-});
+export const flashcardReviewSchema = z
+  .object({
+    cardKey: z
+      .string()
+      .trim()
+      .min(3)
+      .max(120)
+      .regex(/^(curated:[a-z0-9-]+|custom:[0-9a-f-]{36})$/i, 'Choose a valid flashcard.'),
+    subjectId: studySubjectEnum,
+    rating: z.enum(['again', 'hard', 'good', 'easy']),
+  })
+  .strict();

@@ -541,7 +541,7 @@ try {
     assert.equal(await scalar('select day_count from public.owlaid_usage where user_id=$1', [bob]), 1);
   });
 
-  await test('Wise Owl Hub 5.0 study tables enforce approved-member RLS, cross-user isolation, and immutability', async () => {
+  await test('Wise Owl Hub 5.0 hardened study tables block direct client score/review tampering while enforcing owner RLS', async () => {
     // Anonymous and unapproved/suspended users cannot access study tables
     await as(null, 'anon');
     await denies('select * from public.study_quiz_attempts');
@@ -560,10 +560,49 @@ try {
          values($1,'biology','Cells','What does a mitochondrion do?','Site of aerobic respiration releasing energy.')`,
         [blocked]
       );
+      await denies(
+        `insert into public.study_flashcard_reviews(user_id,card_key,subject_id,box,ease_factor,interval_days,repetitions,lapses,last_rating,next_review_at)
+         values($1,'curated:fc-bio-1','biology',5,3.00,60,10,0,'easy',now() + interval '60 days')`,
+        [blocked]
+      );
     }
 
-    // Approved learner Bob saves quiz attempt, custom flashcard, and review state
+    // Approved authenticated student Bob CANNOT directly insert quiz attempts or forge review schedules
     await as(bob);
+    await denies(
+      `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds,weak_topics)
+       values($1,'biology','extended','practice',5,5,100,'A*',10,$2)`,
+      [bob, []]
+    );
+    await denies(
+      `insert into public.study_flashcard_reviews(user_id,card_key,subject_id,box,ease_factor,interval_days,repetitions,lapses,last_rating,next_review_at)
+       values($1,'curated:fc-bio-1','biology',5,3.00,60,10,0,'easy',now() + interval '60 days')`,
+      [bob]
+    );
+
+    // Approved authenticated student Bob CAN still manage his own custom flashcards (with ownership guard)
+    const cardId = await scalar(
+      `insert into public.study_flashcards(user_id,subject_id,topic,front,back,hint)
+       values($1,'chemistry','Moles','Formula for moles from mass?','n = mass / Mr','Divide grams by relative formula mass') returning id`,
+      [bob]
+    );
+    assert.ok(cardId);
+    await denies(
+      `insert into public.study_flashcards(user_id,subject_id,topic,front,back)
+       values($1,'chemistry','Spoof','Spoofed owner?','Must fail')`,
+      [clara]
+    );
+    await denies(`update public.study_flashcards set user_id=$2 where id=$1`, [cardId, clara]);
+    await db.query(`update public.study_flashcards set topic='Stoichiometry & Moles' where id=$1`, [cardId]);
+
+    // Server-side service_role writes validated quiz attempts and flashcard review schedules for Bob
+    await as(null, 'service_role');
+    await denies(
+      `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds)
+       values($1,'biology','all','practice',6,5,100,'A*',10)`,
+      [bob],
+      /check constraint/i
+    );
     const attemptId = await scalar(
       `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds,weak_topics)
        values($1,'biology','extended','practice',4,5,80,'A',62,$2) returning id`,
@@ -571,34 +610,19 @@ try {
     );
     assert.ok(attemptId);
 
-    // Quiz attempts are immutable (no UPDATE grant) and cannot exceed total_questions
-    await denies(`update public.study_quiz_attempts set score=5, percentage=100 where id=$1`, [attemptId]);
-    await denies(
-      `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds)
-       values($1,'biology','all','practice',6,5,100,'A*',10)`,
-      [bob],
-      /check constraint/i
-    );
-    // Cannot spoof another student's user_id
-    await denies(
-      `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds)
-       values($1,'biology','all','practice',5,5,100,'A*',10)`,
-      [clara]
-    );
-
-    const cardId = await scalar(
-      `insert into public.study_flashcards(user_id,subject_id,topic,front,back,hint)
-       values($1,'chemistry','Moles','Formula for moles from mass?','n = mass / Mr','Divide grams by relative formula mass') returning id`,
-      [bob]
-    );
-    assert.ok(cardId);
-    await denies(`update public.study_flashcards set user_id=$2 where id=$1`, [cardId, clara]);
-
     await db.query(
       `insert into public.study_flashcard_reviews(user_id,card_key,subject_id,box,ease_factor,interval_days,repetitions,lapses,last_rating,next_review_at)
        values($1,$2,'chemistry',2,2.55,3,2,0,'good',now() + interval '3 days')`,
       [bob, `custom:${cardId}`]
     );
+
+    // Bob can SELECT his own server-written records, cannot UPDATE attempts, and cannot UPDATE/DELETE reviews directly
+    await as(bob);
+    assert.equal(await scalar('select count(*)::int from public.study_quiz_attempts where id=$1', [attemptId]), 1);
+    assert.equal(await scalar('select count(*)::int from public.study_flashcard_reviews where card_key=$1', [`custom:${cardId}`]), 1);
+    await denies(`update public.study_quiz_attempts set score=5, percentage=100 where id=$1`, [attemptId]);
+    await denies(`update public.study_flashcard_reviews set box=5, interval_days=365 where card_key=$1`, [`custom:${cardId}`]);
+    await denies(`delete from public.study_flashcard_reviews where card_key=$1`, [`custom:${cardId}`]);
 
     // Cross-user isolation: Clara sees ZERO of Bob's study records and cannot mutate or delete them
     await as(clara);
@@ -608,9 +632,9 @@ try {
     assert.deepEqual(await rows('delete from public.study_flashcards where id=$1 returning id', [cardId]), []);
     assert.deepEqual(await rows('delete from public.study_quiz_attempts where id=$1 returning id', [attemptId]), []);
 
-    // Bob still owns and can delete his own custom flashcard
+    // Bob can DELETE his own quiz attempt history and custom flashcard under owner-only RLS
     await as(bob);
-    assert.equal(await scalar('select count(*)::int from public.study_quiz_attempts where id=$1', [attemptId]), 1);
+    assert.equal(await scalar('delete from public.study_quiz_attempts where id=$1 returning id', [attemptId]), attemptId);
     assert.equal(await scalar('delete from public.study_flashcards where id=$1 returning id', [cardId]), cardId);
   });
 

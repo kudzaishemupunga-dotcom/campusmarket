@@ -116,6 +116,31 @@ test('Wise Owl Hub 5.0: Student Dashboard, OwlAid IGCSE Study Mode, Scored Quizz
   await expect(page.getByTestId('hub-metrics')).toContainText('1 scored attempt');
   await expect(page.getByTestId('subject-card-biology')).toContainText('Quiz avg');
 
+  // Verify authenticated client cannot forge quiz scores or spaced-repetition schedules via API
+  const forgedQuiz = await page.request.post('/api/study/quizzes/attempts', {
+    data: {
+      subjectId: 'biology',
+      tier: 'all',
+      mode: 'practice',
+      durationSeconds: 10,
+      score: 100,
+      grade_band: 'A*',
+      answers: [{ questionId: 'bio-01', selectedIndex: 2 }],
+    },
+  });
+  expect(forgedQuiz.status()).toBe(400);
+
+  const forgedReview = await page.request.post('/api/study/flashcards/review', {
+    data: {
+      cardKey: 'curated:fc-bio-1',
+      subjectId: 'biology',
+      rating: 'good',
+      box: 5,
+      interval_days: 365,
+    },
+  });
+  expect(forgedReview.status()).toBe(400);
+
   // 5. Interactive Flashcards with spaced-repetition rating & custom card creation
   await page.goto('/flashcards?subject=biology');
   await expect(page.getByTestId('active-flashcard')).toBeVisible();
@@ -125,6 +150,10 @@ test('Wise Owl Hub 5.0: Student Dashboard, OwlAid IGCSE Study Mode, Scored Quizz
   await page.getByTestId('rate-good').click();
   // Should advance to the next card
   await expect(page.getByTestId('flashcard-front')).not.toHaveText(initialFront ?? '');
+
+  // Confirm spaced-repetition review persisted to hardened DB across reload (due count for Biology dropped from 8 -> 7)
+  await page.reload();
+  await expect(page.getByTestId('flashcard-subject-biology')).toContainText('7 due');
 
   // Create a custom flashcard and verify cloud persistence across page reload
   await page.getByTestId('open-create-card-button').click();

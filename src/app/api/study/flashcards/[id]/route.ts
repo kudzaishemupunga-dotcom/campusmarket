@@ -3,7 +3,7 @@ import { getOwlAidUser } from '@/lib/owlaid/auth';
 import { isSupabaseConfigured } from '@/lib/server/config';
 import { isMissingStudyTableError } from '@/lib/server/hub-data';
 import { hasValidOrigin } from '@/lib/server/request-guards';
-import { serverSupabase } from '@/lib/server/supabase';
+import { serverSupabase, studyServiceSupabase } from '@/lib/server/supabase';
 import { uuidSchema } from '@/lib/validation';
 
 export const runtime = 'nodejs';
@@ -59,12 +59,18 @@ export async function DELETE(
       return json({ error: 'Flashcard not found.' }, 404);
     }
 
-    // Best-effort cleanup of review metadata for this custom card
-    await client
-      .from('study_flashcard_reviews')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('card_key', `custom:${parsedId.data}`);
+    // Best-effort cleanup of review metadata for this deleted custom card via server-only service client
+    // (direct authenticated DELETE on study_flashcard_reviews is revoked by hardened Migration 005).
+    try {
+      const serviceClient = studyServiceSupabase();
+      await serviceClient
+        .from('study_flashcard_reviews')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('card_key', `custom:${parsedId.data}`);
+    } catch {
+      /* Ignore review cleanup failure if service-role key is absent in non-production environments */
+    }
 
     return json({ deleted: true, persisted: true });
   } catch {

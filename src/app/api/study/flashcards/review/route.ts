@@ -4,10 +4,11 @@ import { getOwlAidUser } from '@/lib/owlaid/auth';
 import { isSupabaseConfigured } from '@/lib/server/config';
 import { isMissingStudyTableError } from '@/lib/server/hub-data';
 import { hasValidOrigin } from '@/lib/server/request-guards';
-import { serverSupabase } from '@/lib/server/supabase';
+import { serverSupabase, studyServiceSupabase } from '@/lib/server/supabase';
+import { CURATED_CARD_BY_KEY } from '@/lib/study/flashcards';
 import { flashcardReviewSchema } from '@/lib/study/scoring';
 import { calculateNextReview } from '@/lib/study/spaced-repetition';
-import type { FlashcardReviewRecord } from '@/lib/study/types';
+import type { FlashcardReviewRecord, StudySubjectId } from '@/lib/study/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,17 +46,67 @@ export async function POST(request: NextRequest) {
 
     const input = flashcardReviewSchema.parse(parsedBody);
 
+    // Authoritatively validate the referenced card before computing or writing any review schedule
+    let verifiedSubjectId: StudySubjectId;
+    const isCurated = input.cardKey.startsWith('curated:');
+
+    if (isCurated) {
+      const curatedCard = CURATED_CARD_BY_KEY.get(input.cardKey);
+      if (!curatedCard) {
+        return json({ error: 'Flashcard not found.' }, 404);
+      }
+      if (curatedCard.subjectId !== input.subjectId) {
+        return json({ error: 'Flashcard subject mismatch.' }, 400);
+      }
+      verifiedSubjectId = curatedCard.subjectId;
+    } else {
+      verifiedSubjectId = input.subjectId;
+    }
+
     if (!isSupabaseConfigured()) {
       const next = calculateNextReview({
         cardKey: input.cardKey,
-        subjectId: input.subjectId,
+        subjectId: verifiedSubjectId,
         rating: input.rating,
       });
       return json({ review: next, persisted: false });
     }
 
-    const client = await serverSupabase();
-    const existingRes = await client
+    // Use user-scoped authenticated client (enforcing RLS) to read owned custom cards & existing review state
+    const userClient = await serverSupabase();
+
+    if (!isCurated) {
+      const customId = input.cardKey.slice('custom:'.length);
+      const customCardRes = await userClient
+        .from('study_flashcards')
+        .select('id,subject_id')
+        .eq('id', customId)
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (customCardRes.error) {
+        if (isMissingStudyTableError(customCardRes.error)) {
+          const next = calculateNextReview({
+            cardKey: input.cardKey,
+            subjectId: verifiedSubjectId,
+            rating: input.rating,
+          });
+          return json({ review: next, persisted: false, migrationRequired: true });
+        }
+        return json({ error: 'Could not verify custom flashcard.' }, 500);
+      }
+
+      const ownedCard = (customCardRes.data?.[0] ?? null) as { id: string; subject_id: StudySubjectId } | null;
+      if (!ownedCard) {
+        return json({ error: 'Flashcard not found.' }, 404);
+      }
+      if (ownedCard.subject_id !== input.subjectId) {
+        return json({ error: 'Flashcard subject mismatch.' }, 400);
+      }
+      verifiedSubjectId = ownedCard.subject_id;
+    }
+
+    const existingRes = await userClient
       .from('study_flashcard_reviews')
       .select('box,ease_factor,interval_days,repetitions,lapses')
       .eq('user_id', user.id)
@@ -66,7 +117,7 @@ export async function POST(request: NextRequest) {
       if (isMissingStudyTableError(existingRes.error)) {
         const next = calculateNextReview({
           cardKey: input.cardKey,
-          subjectId: input.subjectId,
+          subjectId: verifiedSubjectId,
           rating: input.rating,
         });
         return json({ review: next, persisted: false, migrationRequired: true });
@@ -81,12 +132,22 @@ export async function POST(request: NextRequest) {
 
     const next = calculateNextReview({
       cardKey: input.cardKey,
-      subjectId: input.subjectId,
+      subjectId: verifiedSubjectId,
       rating: input.rating,
       existing: existingRow,
     });
 
-    const upsertRes = await client
+    // Hardened Migration 005 revokes direct authenticated INSERT/UPDATE/DELETE on study_flashcard_reviews.
+    // Server-calculated review schedules are persisted strictly via the server-only service-role client
+    // using the verified `user.id` and verified card/subject identity.
+    let serviceClient: ReturnType<typeof studyServiceSupabase>;
+    try {
+      serviceClient = studyServiceSupabase();
+    } catch {
+      return json({ error: 'Study persistence service is not configured.' }, 503);
+    }
+
+    const upsertRes = await serviceClient
       .from('study_flashcard_reviews')
       .upsert(
         {

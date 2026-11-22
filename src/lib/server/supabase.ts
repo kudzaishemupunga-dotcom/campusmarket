@@ -25,3 +25,18 @@ export function storageSupabase() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
+
+/**
+ * Server-only privileged client for validated Wise Owl Hub study writes
+ * (server-graded quiz attempts and server-calculated flashcard review schedules),
+ * used strictly AFTER origin validation, approved-user authentication (`getOwlAidUser()`),
+ * and strict payload/ownership checks. Never expose SUPABASE_SERVICE_ROLE_KEY to the client.
+ */
+export function studyServiceSupabase() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !isSupabaseConfigured()) {
+    throw new Error('Study write service is not configured.');
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
