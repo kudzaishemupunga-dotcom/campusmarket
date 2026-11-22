@@ -230,6 +230,10 @@ export const adminProductSchema = z.object({
 
 const allowedRedirects = new Set([
   '/',
+  '/hub',
+  '/owlaid',
+  '/quizzes',
+  '/flashcards',
   '/reset-password',
   '/pending-approval',
   '/dashboard',

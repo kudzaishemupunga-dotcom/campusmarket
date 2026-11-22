@@ -25,6 +25,9 @@ const ALLOWED_TABLES = new Set([
   'reports',
   'moderation_events',
   'rate_limit_events',
+  'study_quiz_attempts',
+  'study_flashcards',
+  'study_flashcard_reviews',
 ]);
 
 const IDENT_RE = /^[a-z_][a-z0-9_]*$/;
@@ -494,7 +497,7 @@ async function handleRest(req, res, url) {
       return sendJson(res, 404, { message: `Unknown table ${table}` });
     }
 
-    if (req.method === 'GET') {
+    if (req.method === 'GET' || req.method === 'HEAD') {
       const params = [];
       const selectSql = parseSelect(table, url.searchParams.get('select'));
       const whereSql = buildWhere(url.searchParams, params, 't');
@@ -519,6 +522,9 @@ async function handleRest(req, res, url) {
           const cr = await tx.query(`select count(*)::int as c from public."${table}" t ${whereSql}`, params);
           countVal = cr.rows[0]?.c ?? 0;
         }
+        if (req.method === 'HEAD') {
+          return { rows: [], total: countVal };
+        }
         const limitSql = limit !== null ? `limit ${Math.max(0, limit)} offset ${Math.max(0, offset)}` : '';
         const qr = await tx.query(
           `select ${selectSql} from public."${table}" t ${whereSql} ${orderSql} ${limitSql}`,
@@ -526,6 +532,20 @@ async function handleRest(req, res, url) {
         );
         return { rows: cleanNestedRows(qr.rows), total: countVal };
       });
+
+      if (req.method === 'HEAD') {
+        const extraHeaders = {};
+        if (wantExactCount) {
+          extraHeaders['Content-Range'] = `*/${total ?? 0}`;
+        }
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Expose-Headers': 'Content-Range',
+          ...extraHeaders,
+        });
+        return res.end();
+      }
 
       if (expectSingle) {
         if (rows.length !== 1) {

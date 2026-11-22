@@ -52,6 +52,7 @@ try {
   await sql(await read('../migrations/202611080002_wise_owl_projects.sql'));
   await sql(await read('../migrations/202611090003_authorization_boundaries.sql'));
   await sql(await read('../migrations/202611110001_owlaid_rate_limit.sql'));
+  await sql(await read('../migrations/202611220001_wise_owl_hub_study.sql'));
 
   await test('migrations apply cleanly, start with zero products, create private bucket and eight project categories', async () => {
     assert.equal(await scalar('select count(*)::int from public.categories'), 8);
@@ -538,6 +539,79 @@ try {
     assert.equal(await scalar('select public.owlaid_take_quota($1)', [bob]), true);
     await privileged();
     assert.equal(await scalar('select day_count from public.owlaid_usage where user_id=$1', [bob]), 1);
+  });
+
+  await test('Wise Owl Hub 5.0 study tables enforce approved-member RLS, cross-user isolation, and immutability', async () => {
+    // Anonymous and unapproved/suspended users cannot access study tables
+    await as(null, 'anon');
+    await denies('select * from public.study_quiz_attempts');
+    await denies('select * from public.study_flashcards');
+    await denies('select * from public.study_flashcard_reviews');
+
+    for (const blocked of [pending, suspended, unverified]) {
+      await as(blocked);
+      await denies(
+        `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds,weak_topics)
+         values($1,'biology','all','practice',4,5,80,'A',45,$2)`,
+        [blocked, ['Enzymes']]
+      );
+      await denies(
+        `insert into public.study_flashcards(user_id,subject_id,topic,front,back)
+         values($1,'biology','Cells','What does a mitochondrion do?','Site of aerobic respiration releasing energy.')`,
+        [blocked]
+      );
+    }
+
+    // Approved learner Bob saves quiz attempt, custom flashcard, and review state
+    await as(bob);
+    const attemptId = await scalar(
+      `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds,weak_topics)
+       values($1,'biology','extended','practice',4,5,80,'A',62,$2) returning id`,
+      [bob, ['Genetics & Inheritance']]
+    );
+    assert.ok(attemptId);
+
+    // Quiz attempts are immutable (no UPDATE grant) and cannot exceed total_questions
+    await denies(`update public.study_quiz_attempts set score=5, percentage=100 where id=$1`, [attemptId]);
+    await denies(
+      `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds)
+       values($1,'biology','all','practice',6,5,100,'A*',10)`,
+      [bob],
+      /check constraint/i
+    );
+    // Cannot spoof another student's user_id
+    await denies(
+      `insert into public.study_quiz_attempts(user_id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds)
+       values($1,'biology','all','practice',5,5,100,'A*',10)`,
+      [clara]
+    );
+
+    const cardId = await scalar(
+      `insert into public.study_flashcards(user_id,subject_id,topic,front,back,hint)
+       values($1,'chemistry','Moles','Formula for moles from mass?','n = mass / Mr','Divide grams by relative formula mass') returning id`,
+      [bob]
+    );
+    assert.ok(cardId);
+    await denies(`update public.study_flashcards set user_id=$2 where id=$1`, [cardId, clara]);
+
+    await db.query(
+      `insert into public.study_flashcard_reviews(user_id,card_key,subject_id,box,ease_factor,interval_days,repetitions,lapses,last_rating,next_review_at)
+       values($1,$2,'chemistry',2,2.55,3,2,0,'good',now() + interval '3 days')`,
+      [bob, `custom:${cardId}`]
+    );
+
+    // Cross-user isolation: Clara sees ZERO of Bob's study records and cannot mutate or delete them
+    await as(clara);
+    assert.equal(await scalar('select count(*)::int from public.study_quiz_attempts'), 0);
+    assert.equal(await scalar('select count(*)::int from public.study_flashcards'), 0);
+    assert.equal(await scalar('select count(*)::int from public.study_flashcard_reviews'), 0);
+    assert.deepEqual(await rows('delete from public.study_flashcards where id=$1 returning id', [cardId]), []);
+    assert.deepEqual(await rows('delete from public.study_quiz_attempts where id=$1 returning id', [attemptId]), []);
+
+    // Bob still owns and can delete his own custom flashcard
+    await as(bob);
+    assert.equal(await scalar('select count(*)::int from public.study_quiz_attempts where id=$1', [attemptId]), 1);
+    assert.equal(await scalar('delete from public.study_flashcards where id=$1 returning id', [cardId]), cardId);
   });
 
   console.log(`\n${passed} database integration scenarios passed using embedded PostgreSQL. Supabase Auth HTTP, Storage HTTP and hosted configuration are not covered.`);

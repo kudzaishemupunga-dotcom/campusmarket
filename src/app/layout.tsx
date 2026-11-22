@@ -4,11 +4,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'CampusMarket · Wise Owl Westgate Student Project Marketplace',
-    template: '%s · CampusMarket Wise Owl Westgate',
+    default: 'Wise Owl Hub · Study & Student Project Marketplace',
+    template: '%s · Wise Owl Hub Westgate',
   },
   description:
-    'A school-supervised digital marketplace showcasing real products designed and built through learner projects at Wise Owl High School Westgate, Harare.',
+    'Wise Owl Hub 5.0 unites Cambridge IGCSE study tools (OwlAid Study Mode, Interactive Quizzes, Flashcards) with CampusMarket for Wise Owl High School Westgate, Harare.',
   robots: { index: false, follow: false },
 };
 

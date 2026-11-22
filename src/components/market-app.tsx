@@ -2,30 +2,22 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createContext, useContext, useState, useSyncExternalStore } from 'react';
+import { createContext, useContext, useState } from 'react';
 import {
   ArrowRight,
   Award,
   BookOpen,
-  CheckCircle2,
+  BrainCircuit,
   ChevronDown,
-  Compass,
+  ClipboardCheck,
   FolderKanban,
-  GraduationCap,
-  Home,
   Layers,
-  Menu,
-  Moon,
+  LayoutDashboard,
   Plus,
   Search,
   ShieldCheck,
-  ShoppingBag,
   Sparkles,
-  Store,
-  Sun,
-  User,
   Users,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { runAction } from '@/app/actions';
@@ -36,6 +28,7 @@ import { ListingDetail, ListingForm } from './listing-pages';
 import { AboutPage, AccountPage, AuthPage, PolicyPage } from './account-pages';
 import { SellerLandingPage, SellerPortalWorkspace, SellerRegisterPage } from './seller-pages';
 import { AdminPage } from './admin-pages';
+import { PlatformFooter, PlatformHeader, PlatformMobileNav } from './hub/platform-shell';
 
 type Query = Record<string, string | undefined>;
 type MarketContext = {
@@ -93,38 +86,6 @@ const fallbackCurriculumAreas: Pick<Category, 'name' | 'slug' | 'description'>[]
     description: 'Interdisciplinary student enterprise products approved by the school.',
   },
 ];
-
-const themeListeners = new Set<() => void>();
-function subscribeTheme(listener: () => void) {
-  themeListeners.add(listener);
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === 'campusmarket-theme') {
-      document.documentElement.dataset.theme = event.newValue === 'dark' ? 'dark' : 'light';
-      listener();
-    }
-  };
-  window.addEventListener('storage', onStorage);
-  return () => {
-    themeListeners.delete(listener);
-    window.removeEventListener('storage', onStorage);
-  };
-}
-function getThemeSnapshot() {
-  return document.documentElement.dataset.theme === 'dark';
-}
-function getThemeServerSnapshot() {
-  return false;
-}
-function setThemePreference(dark: boolean) {
-  const next = dark ? 'dark' : 'light';
-  document.documentElement.dataset.theme = next;
-  try {
-    localStorage.setItem('campusmarket-theme', next);
-  } catch {
-    /* ignore storage errors */
-  }
-  themeListeners.forEach((listener) => listener());
-}
 
 export function MarketApp({
   initialData,
@@ -218,7 +179,7 @@ export function MarketApp({
 
   return (
     <Context.Provider value={context}>
-      <Header path={path} />
+      <PlatformHeader path={path} profile={data.profile} />
       {data.mode === 'unconfigured' && (
         <div className="configuration-banner" data-testid="configuration-banner">
           <div className="container config-banner-inner">
@@ -237,8 +198,8 @@ export function MarketApp({
           <p className="inline-notice" role="status">This workspace shows up to 200 records per collection. Counts describe the loaded records; ask the administrator to review the full database when the school grows beyond this limit.</p>}
         {page}
       </main>
-      <Footer />
-      <MobileBottomNav path={path} signedIn={Boolean(data.profile)} />
+      <PlatformFooter />
+      <PlatformMobileNav path={path} />
     </Context.Provider>
   );
 }
@@ -260,221 +221,6 @@ function ConfigurationRequiredState() {
         secondaryAction="Return Home"
       />
     </>
-  );
-}
-
-function Header({ path }: { path: string }) {
-  const { data } = useMarket();
-  const dark = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
-  const [menu, setMenu] = useState(false);
-
-  const isSellerActive = path.startsWith('/seller');
-  const isMarketActive = path === '/marketplace' || path.startsWith('/category/') || path.startsWith('/product/');
-  const isProjectsActive = path.startsWith('/projects');
-
-  return (
-    <header className="site-header">
-      <div className="container header-inner">
-        <Link href="/" className="brand" aria-label="CampusMarket home">
-          <span className="brand-mark" aria-hidden="true">
-            <GraduationCap size={20} />
-          </span>
-          <span className="brand-text">
-            <span className="brand-title">
-              Campus<span className="brand-gold">Market</span>
-            </span>
-            <span className="brand-sub">Wise Owl Westgate</span>
-          </span>
-        </Link>
-
-        <nav className="desktop-nav" aria-label="Main navigation">
-          <Link className={path === '/' ? 'active' : ''} href="/">
-            Home
-          </Link>
-          <Link className={isMarketActive ? 'active' : ''} href="/marketplace">
-            Marketplace
-          </Link>
-          <Link className={isProjectsActive ? 'active' : ''} href="/projects">
-            Projects
-          </Link>
-          <Link className={isSellerActive ? 'active' : ''} href="/seller">
-            Seller
-          </Link>
-          <Link className={path.startsWith('/owlaid') ? 'active' : ''} href="/owlaid">
-            OwlAid
-          </Link>
-          <Link className={path === '/about' ? 'active' : ''} href="/about">
-            About
-          </Link>
-          {data.profile ? (
-            <Link className={path === '/account' ? 'active' : ''} href="/account">
-              Account
-            </Link>
-          ) : (
-            <Link className={path === '/login' ? 'active' : ''} href="/login">
-              Sign In
-            </Link>
-          )}
-          {data.profile?.role === 'admin' && (
-            <Link className={path.startsWith('/admin') ? 'active admin-nav-pill' : 'admin-nav-pill'} href="/admin">
-              Admin
-            </Link>
-          )}
-        </nav>
-
-        <div className="header-actions">
-          <button
-            type="button"
-            className="icon-button theme-toggle"
-            onClick={() => setThemePreference(!dark)}
-            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-
-          {data.profile?.verification_status === 'approved' ? (
-            <Link className="button primary header-cta" href="/seller/dashboard">
-              <Store size={16} /> Seller Hub
-            </Link>
-          ) : (
-            <Link className="button primary header-cta" href="/seller/register">
-              <Plus size={16} /> Become a Seller
-            </Link>
-          )}
-
-          {data.profile && (
-            <Link href="/account" className="avatar" aria-label="Account overview">
-              {data.profile.display_name
-                .split(' ')
-                .map((n) => n[0])
-                .slice(0, 2)
-                .join('')}
-            </Link>
-          )}
-
-          <button
-            type="button"
-            className="icon-button menu-toggle"
-            aria-label={menu ? 'Close menu' : 'Open menu'}
-            aria-expanded={menu}
-            onClick={() => setMenu(!menu)}
-          >
-            {menu ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-      </div>
-
-      {menu && (
-        <nav className="mobile-menu" aria-label="Expanded navigation">
-          <Link href="/" onClick={() => setMenu(false)}>
-            Home
-          </Link>
-          <Link href="/marketplace" onClick={() => setMenu(false)}>
-            Marketplace
-          </Link>
-          <Link href="/projects" onClick={() => setMenu(false)}>
-            Projects
-          </Link>
-          <Link href="/seller" onClick={() => setMenu(false)}>
-            Seller Portal
-          </Link>
-          {data.profile && (
-            <Link href="/seller/dashboard" onClick={() => setMenu(false)}>
-              Seller Dashboard
-            </Link>
-          )}
-          <Link href="/owlaid" onClick={() => setMenu(false)}>
-            OwlAid
-          </Link>
-          <Link href="/about" onClick={() => setMenu(false)}>
-            About
-          </Link>
-          {data.profile ? (
-            <Link href="/account" onClick={() => setMenu(false)}>
-              Account ({data.profile.display_name})
-            </Link>
-          ) : (
-            <Link href="/login" onClick={() => setMenu(false)}>
-              Sign In
-            </Link>
-          )}
-          {data.profile?.role === 'admin' && (
-            <Link href="/admin" onClick={() => setMenu(false)}>
-              Administration
-            </Link>
-          )}
-        </nav>
-      )}
-    </header>
-  );
-}
-
-function MobileBottomNav({ path, signedIn }: { path: string; signedIn: boolean }) {
-  return (
-    <nav className="mobile-bottom" aria-label="Mobile navigation">
-      <Link className={path === '/' ? 'active' : ''} href="/">
-        <Home size={19} /> Home
-      </Link>
-      <Link
-        className={path === '/marketplace' || path.startsWith('/category') || path.startsWith('/product') ? 'active' : ''}
-        href="/marketplace"
-      >
-        <ShoppingBag size={19} /> Marketplace
-      </Link>
-      <Link className={path.startsWith('/projects') ? 'active' : ''} href="/projects">
-        <Compass size={19} /> Projects
-      </Link>
-      <Link className={path.startsWith('/seller') ? 'active' : ''} href="/seller">
-        <Store size={19} /> Seller
-      </Link>
-      <Link
-        className={path === '/account' || path === '/login' ? 'active' : ''}
-        href={signedIn ? '/account' : '/login'}
-      >
-        <User size={19} /> {signedIn ? 'Account' : 'Sign In'}
-      </Link>
-    </nav>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="site-footer">
-      <div className="container footer-grid">
-        <div className="footer-brand-col">
-          <Link className="brand footer-brand" href="/">
-            <span className="brand-mark" aria-hidden="true">
-              <GraduationCap size={19} />
-            </span>
-            <span className="brand-text">
-              <span className="brand-title">
-                Campus<span className="brand-gold">Market</span>
-              </span>
-              <span className="brand-sub">Wise Owl High School Westgate · Harare</span>
-            </span>
-          </Link>
-          <p className="footer-motto">
-            <em>“Going an Extra Mile”</em> — Showcasing authentic learner innovation, craftsmanship, and collaborative school projects.
-          </p>
-        </div>
-
-        <nav className="footer-links" aria-label="Footer navigation">
-          <Link href="/marketplace">Marketplace</Link>
-          <Link href="/seller">Seller Portal</Link>
-          <Link href="/projects">Projects</Link>
-          <Link href="/owlaid">OwlAid</Link>
-          <Link href="/rules">School Rules</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/about">Project Information</Link>
-        </nav>
-      </div>
-
-      <div className="container footer-disclaimer">
-        <p>
-          <strong>Disclaimer:</strong> CampusMarket is a student-created platform developed for Wise Owl High School Westgate learners to showcase real school-project products. Unless formally established otherwise by school administration, it is not an official commercial publication of Wise Owl Group of Schools.
-        </p>
-      </div>
-    </footer>
   );
 }
 
@@ -542,8 +288,11 @@ function HomePage() {
             Discover innovative products created by learners at Wise Owl High School Westgate.
           </p>
           <div className="button-row">
-            <Link className="button primary hero-button" href="/marketplace">
-              Explore Products <ArrowRight size={18} />
+            <Link className="button primary hero-button" href="/hub">
+              Open Wise Owl Hub <ArrowRight size={18} />
+            </Link>
+            <Link className="button secondary hero-secondary-btn" href="/marketplace">
+              Explore Products
             </Link>
             <Link className="button secondary hero-secondary-btn" href="/seller/register">
               Become a Seller
@@ -552,7 +301,7 @@ function HomePage() {
           <div className="hero-trust">
             <ShieldCheck size={18} />
             <span>
-              Aligned with Zimbabwe’s Heritage-Based Curriculum · School-verified learners & groups only
+              Aligned with Cambridge IGCSE & Zimbabwe’s Heritage-Based Curriculum · School-verified learners & groups
             </span>
           </div>
         </div>
@@ -565,23 +314,62 @@ function HomePage() {
             </div>
             <h2>“Going an Extra Mile”</h2>
             <p>
-              Turning practical classroom inquiry, technical skill, and teamwork into real goods produced by Wise Owl Westgate students.
+              Uniting Cambridge IGCSE revision tools, OwlAid academic tutoring, and real student-built goods at Wise Owl High School Westgate.
             </p>
             <div className="showcase-pillars">
               <div>
-                <Layers size={16} />
-                <span>Individual & Group Projects</span>
+                <BrainCircuit size={16} />
+                <span>OwlAid 5.0 IGCSE Study Mode</span>
               </div>
               <div>
-                <CheckCircle2 size={16} />
-                <span>Administrator Moderated</span>
+                <ClipboardCheck size={16} />
+                <span>Scored Quizzes & Spaced Flashcards</span>
               </div>
               <div>
                 <ShieldCheck size={16} />
-                <span>Supervised Campus Handover</span>
+                <span>Moderated Student Marketplace</span>
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* WISE OWL HUB 5.0 UNIFIED STUDY SUITE */}
+      <section className="home-section" aria-labelledby="section-study-hub">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">WISE OWL HUB 5.0 · CAMBRIDGE IGCSE SUITE</p>
+            <h2 id="section-study-hub">Study Smarter Across Every Subject</h2>
+          </div>
+          <Link href="/hub">
+            Open Student Dashboard <ArrowRight size={16} />
+          </Link>
+        </div>
+        <div className="hub-launcher-grid">
+          <Link href="/hub" className="panel hub-launcher-card">
+            <span className="hub-launcher-icon"><LayoutDashboard size={22} /></span>
+            <h3>Student Dashboard</h3>
+            <p>Track IGCSE readiness across 8 subjects, review quiz grades, streaks, and CampusMarket activity in one hub.</p>
+            <span className="card-cta">Open Dashboard <ArrowRight size={14} /></span>
+          </Link>
+          <Link href="/owlaid?mode=igcse" className="panel hub-launcher-card">
+            <span className="hub-launcher-icon"><BrainCircuit size={22} /></span>
+            <h3>OwlAid IGCSE Study Mode</h3>
+            <p>Syllabus-aligned explanations, Cambridge mark-scheme coaching, Socratic hints, and school info assistance.</p>
+            <span className="card-cta">Launch OwlAid Study <ArrowRight size={14} /></span>
+          </Link>
+          <Link href="/quizzes" className="panel hub-launcher-card">
+            <span className="hub-launcher-icon"><ClipboardCheck size={22} /></span>
+            <h3>Subject Quizzes</h3>
+            <p>64 Core & Extended IGCSE questions with real scoring, grade estimates (A*–U), topic diagnostics, and exam timer.</p>
+            <span className="card-cta">Start a Quiz <ArrowRight size={14} /></span>
+          </Link>
+          <Link href="/flashcards" className="panel hub-launcher-card">
+            <span className="hub-launcher-icon"><Layers size={22} /></span>
+            <h3>Spaced Flashcards</h3>
+            <p>Active-recall flip decks with Leitner spaced repetition, custom student card creation, and due-review queues.</p>
+            <span className="card-cta">Review Flashcards <ArrowRight size={14} /></span>
+          </Link>
         </div>
       </section>
 

@@ -47,7 +47,11 @@ Keep `.env.local` out of version control.
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Wise Owl Westgate Student Project Marketplace homepage (Hero, Sections A–E) |
+| `/` | Wise Owl Hub & CampusMarket homepage (Hero, Study Suite Gateway, Student Project Showcase) |
+| `/hub` | Unified Student Dashboard (Cambridge IGCSE readiness matrix, quiz scores, flashcard mastery, streaks & CampusMarket snapshot) |
+| `/owlaid` | OwlAid 5.0 (School information assistant & Cambridge IGCSE Study Mode with Core/Extended coaching) |
+| `/quizzes` | Interactive Cambridge IGCSE subject quizzes with server-verified scoring, grade bands (A*–U), topic diagnostics & exam timer |
+| `/flashcards` | Interactive active-recall flashcards with Leitner/SM-2 spaced repetition, hints & custom student decks |
 | `/marketplace`, `/category/[slug]` | Approved-member catalog with search, curriculum category, availability, price, and sort filters |
 | `/projects`, `/projects/[slug]` | Verified collaborative student project groups and team rosters |
 | `/product/[id]` | Product gallery, project craft/engineering specifications, and Safe Purchase Request panel |

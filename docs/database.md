@@ -4,8 +4,11 @@ Apply migrations in lexical order to a Supabase project:
 
 1. `supabase/migrations/202611080001_campusmarket.sql` — Core profiles, categories, listings, listing images, saved listings, reports, moderation audit events, rate limits, private `listing-images` bucket, and baseline RLS.
 2. `supabase/migrations/202611080002_wise_owl_projects.sql` — CampusMarket 2.0 Wise Owl Student Project Marketplace schema: curriculum project categories, individual seller verification columns, shared `seller_groups` & `group_members` workspaces, project/stock/availability/admin-attribution columns on `listings`, primary image selection, `purchase_requests` with atomic stock fulfillment, and audited admin/group RPCs.
+3. `supabase/migrations/202611090003_authorization_boundaries.sql` — Authorization boundary hardening for listings, images, groups, and purchase request fulfillment.
+4. `supabase/migrations/202611110001_owlaid_rate_limit.sql` — OwlAid per-user minute/daily quota table (`public.owlaid_usage`) and `service_role`-only RPC (`public.owlaid_take_quota`).
+5. `supabase/migrations/202611220001_wise_owl_hub_study.sql` — Wise Owl Hub 5.0 (Project Leviathan) student study tables (`public.study_quiz_attempts`, `public.study_flashcards`, `public.study_flashcard_reviews`) with approved-member owner-only RLS, immutable quiz attempts, ownership guard triggers, and a 200-card custom flashcard cap per learner.
 
-Neither migration creates fake users, demo groups, or invented product listings.
+None of the migrations create fake users, demo groups, or invented product listings.
 
 ## Tables
 
@@ -21,6 +24,10 @@ Neither migration creates fake users, demo groups, or invented product listings.
 | `saved_listings` | Composite `(user_id, listing_id)` shortlist. |
 | `reports` | Community safety/moderation reports (`open` \| `resolved` \| `dismissed`); partial unique index limits one open report per reporter/product. |
 | `moderation_events` | Immutable audit log of user approvals, seller access changes, group moderations, product reviews, verified admin product publications, and report resolutions. |
+| `owlaid_usage` | Per-user OwlAid AI minute (`10/min`) and daily (`80/day`) quota counters (service-role only). |
+| `study_quiz_attempts` | Immutable server-graded Cambridge IGCSE quiz attempt records (`subject_id`, `tier`, `mode`, `score`, `total_questions`, `percentage`, `grade_band`, `duration_seconds`, `weak_topics`). Strict owner-only RLS for approved members. |
+| `study_flashcards` | Private student-authored flashcards (`subject_id`, `topic`, `front`, `back`, `hint`), capped at 200 per learner by trigger and isolated by owner-only RLS. |
+| `study_flashcard_reviews` | Spaced-repetition (Leitner/SM-2) review state (`card_key`, `box`, `ease_factor`, `interval_days`, `repetitions`, `lapses`, `last_rating`, `next_review_at`) for curated and custom cards, isolated by owner-only RLS. |
 | `private.rate_limits` | Per-user fixed-window write quotas enforced inside PostgreSQL triggers and RPCs. |
 
 ## Key Security-Definer RPCs

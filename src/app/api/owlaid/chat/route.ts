@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAllowedRequestOrigin } from "@/lib/server/config";
+import { hasValidOrigin } from "@/lib/server/request-guards";
 import { getOwlAidUser } from "@/lib/owlaid/auth";
 import { getLocalAnswer } from "@/lib/owlaid/fallback";
 import { askGemini } from "@/lib/owlaid/gemini";
 import { takeOwlAidQuota } from "@/lib/owlaid/quota";
-import { validHistory, type ChatResult } from "@/lib/owlaid/types";
+import { getOfflineStudyAnswer } from "@/lib/owlaid/study-fallback";
+import { validHistory, validStudyContext, type ChatResult, type StudyContext } from "@/lib/owlaid/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,19 +17,7 @@ function json(data: object, status = 200) {
   });
 }
 
-function hasValidOrigin(request: NextRequest): boolean {
-  if (request.headers.get("sec-fetch-site") === "cross-site") return false;
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    const parsed = new URL(origin);
-    if (!["http:", "https:"].includes(parsed.protocol)) return false;
-    if (parsed.origin === request.nextUrl.origin) return true;
-    return isAllowedRequestOrigin(parsed.origin);
-  } catch {
-    return false;
-  }
-}
+const CALENDAR_GUARD_RE = /\b(timetable|schedule|calendar|term dates?|exam(?:s|ination)? dates?|next (?:school )?event|school song|school anthem)\b/i;
 
 export async function POST(request: NextRequest) {
   if (!hasValidOrigin(request)) {
@@ -48,18 +37,33 @@ export async function POST(request: NextRequest) {
     let payload: unknown;
     try { payload = JSON.parse(text); } catch { return json({ error: "Invalid JSON" }, 400); }
     if (!payload || typeof payload !== "object") return json({ error: "Invalid request" }, 400);
-    const { message, history } = payload as Record<string, unknown>;
+    const { message, history, study } = payload as Record<string, unknown>;
     if (typeof message !== "string" || !message.trim() || message.trim().length > 600) {
       return json({ error: "Message must be between 1 and 600 characters" }, 400);
     }
     if (!validHistory(history)) return json({ error: "Invalid conversation history" }, 400);
+    if (!validStudyContext(study)) return json({ error: "Invalid IGCSE study mode options" }, 400);
 
+    const studyContext: StudyContext | undefined = study?.enabled ? study : undefined;
     const question = message.trim();
-    const local = getLocalAnswer(question);
-    // Return trusted reference answers without consuming Gemini quota.
-    if (local) return json({ reply: local, mode: "local" } satisfies ChatResult);
+
+    if (!studyContext) {
+      const local = getLocalAnswer(question);
+      // Return trusted reference answers without consuming Gemini quota.
+      if (local) return json({ reply: local, mode: "local" } satisfies ChatResult);
+    } else if (CALENDAR_GUARD_RE.test(question)) {
+      const guardReply = getLocalAnswer(question);
+      if (guardReply) return json({ reply: guardReply, mode: "local" } satisfies ChatResult);
+    }
 
     if (!process.env.GEMINI_API_KEY) {
+      if (studyContext) {
+        return json({
+          reply: getOfflineStudyAnswer(question, studyContext),
+          mode: "local",
+          notice: "Offline IGCSE reference",
+        } satisfies ChatResult);
+      }
       return json({ reply: "I'm in offline mode. I can answer questions about school facts, but I can't answer that question without the AI service.", mode: "local" } satisfies ChatResult);
     }
 
@@ -67,14 +71,28 @@ export async function POST(request: NextRequest) {
     try { allowed = await takeOwlAidQuota(user.id); }
     catch {
       // Fail closed for API spending; never allow unlimited calls if quota is down.
+      if (studyContext) {
+        return json({
+          reply: getOfflineStudyAnswer(question, studyContext),
+          mode: "local",
+          notice: "AI unavailable",
+        } satisfies ChatResult);
+      }
       return json({ reply: "The AI service is temporarily unavailable. My local school information is still available.", mode: "local", notice: "AI unavailable" } satisfies ChatResult);
     }
     if (!allowed) return json({ error: "OwlAid AI usage limit reached. Please try again later. School facts remain available." }, 429);
 
     try {
-      const { reply, model } = await askGemini(question, history);
+      const { reply, model } = await askGemini(question, history, studyContext);
       return json({ reply, mode: "ai", model } satisfies ChatResult);
     } catch {
+      if (studyContext) {
+        return json({
+          reply: getOfflineStudyAnswer(question, studyContext),
+          mode: "local",
+          notice: "AI unavailable",
+        } satisfies ChatResult);
+      }
       return json({ reply: "I couldn't reach the AI service right now. Please try again later, or ask me a question about school facts.", mode: "local", notice: "AI unavailable" } satisfies ChatResult);
     }
   } catch {
