@@ -6,7 +6,6 @@ import {
   BookOpen,
   BrainCircuit,
   ClipboardCheck,
-  GraduationCap,
   Layers,
   LayoutDashboard,
   Menu,
@@ -18,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import type { Profile } from '@/lib/types';
+import { WiseOwlLogo } from './wise-owl-logo';
 
 const themeListeners = new Set<() => void>();
 
@@ -82,8 +82,8 @@ export function PlatformHeader({
     <header className="site-header">
       <div className="container header-inner">
         <Link href="/" className="brand" aria-label="Wise Owl Hub home">
-          <span className="brand-mark" aria-hidden="true">
-            <GraduationCap size={20} />
+          <span className="brand-mark">
+            <WiseOwlLogo variant="shield" size={32} eager />
           </span>
           <span className="brand-text">
             <span className="brand-title">
@@ -273,10 +273,8 @@ export function PlatformFooter() {
     <footer className="site-footer">
       <div className="container footer-grid">
         <div className="footer-brand-col">
-          <Link className="brand footer-brand" href="/">
-            <span className="brand-mark" aria-hidden="true">
-              <GraduationCap size={19} />
-            </span>
+          <Link className="brand footer-brand" href="/" aria-label="Wise Owl Hub home">
+            <WiseOwlLogo variant="crest" size={58} framed eager className="footer-crest-badge" />
             <span className="brand-text">
               <span className="brand-title">
                 Wise Owl <span className="brand-gold">Hub</span>

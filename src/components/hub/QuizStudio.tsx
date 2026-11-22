@@ -35,6 +35,7 @@ import type {
   StudyProgressPayload,
 } from '@/lib/study/types';
 import type { Profile } from '@/lib/types';
+import { WiseOwlLogo } from './wise-owl-logo';
 
 function formatTimer(seconds: number): string {
   const safe = Math.max(0, seconds);
@@ -344,12 +345,15 @@ export function QuizStudio({
     return (
       <div className="study-studio" data-testid="quiz-studio">
         <div className="page-heading">
-          <div>
-            <p className="eyebrow">WISE OWL HUB 5.0 · CAMBRIDGE IGCSE ASSESSMENTS</p>
-            <h1>Interactive Subject Quizzes.</h1>
-            <p>
-              Test your mastery across 8 Cambridge IGCSE subjects with server-verified scoring, grade band estimates (A*–U), topic diagnostics, and instant OwlAid explanations.
-            </p>
+          <div className="page-heading-lead">
+            <WiseOwlLogo variant="crest" size={68} framed eager className="page-heading-crest" />
+            <div className="page-heading-copy">
+              <p className="eyebrow">WISE OWL HUB 5.0 · CAMBRIDGE IGCSE ASSESSMENTS</p>
+              <h1>Interactive Subject Quizzes.</h1>
+              <p>
+                Test your mastery across 8 Cambridge IGCSE subjects with server-verified scoring, grade band estimates (A*–U), topic diagnostics, and instant OwlAid explanations.
+              </p>
+            </div>
           </div>
           <div className="heading-actions">
             <Link className="button secondary" href="/hub">

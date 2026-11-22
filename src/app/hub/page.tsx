@@ -6,7 +6,9 @@ import { getHubServerData } from '@/lib/server/hub-data';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Student Hub',
+  title: {
+    absolute: 'Wise Owl Hub | Wise Owl Westgate',
+  },
   description:
     'Unified student dashboard for Wise Owl High School Westgate: Cambridge IGCSE readiness, OwlAid Study Mode, quizzes, flashcards, and CampusMarket.',
 };

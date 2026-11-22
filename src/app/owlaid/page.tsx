@@ -6,7 +6,7 @@ import { getHubServerData } from "@/lib/server/hub-data";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "OwlAid 5.0 · IGCSE Study Mode",
+  title: "OwlAid",
   description:
     "Student-built Cambridge IGCSE study tutor and school information assistant for Wise Owl High School Westgate.",
 };

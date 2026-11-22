@@ -6,6 +6,7 @@ import { BookOpen, BrainCircuit, ClipboardCheck, Layers, Sparkles } from "lucide
 import type { ChatResult, HistoryTurn, StudyContext } from "@/lib/owlaid/types";
 import { isStudySubjectId, STUDY_SUBJECTS, SUBJECT_BY_ID } from "@/lib/study/curriculum";
 import type { StudyCoachMode, StudySubjectId, StudyTier } from "@/lib/study/types";
+import { WiseOwlLogo } from "@/components/hub/wise-owl-logo";
 import styles from "./OwlAidChat.module.css";
 
 type Message = {
@@ -151,7 +152,9 @@ export default function OwlAidChat({
       <section className={styles.banner}>
         <div className={styles.bannerInner}>
           <div className={styles.brand}>
-            <div className={styles.logo} aria-hidden="true">🦉</div>
+            <div className={styles.logo}>
+              <WiseOwlLogo variant="shield" size={40} eager />
+            </div>
             <div>
               <div className={styles.schoolName}>WISE OWL HUB 5.0 · WESTGATE</div>
               <h1>OwlAid <span>5.0</span></h1>
@@ -357,7 +360,7 @@ export default function OwlAidChat({
           <div className={styles.chatTop}>
             <div className={styles.chatTitle}>
               <span className={styles.chatIcon} aria-hidden="true">
-                {assistantMode === "igcse" ? "🎓" : "🦉"}
+                <WiseOwlLogo variant="shield" size={26} alt="" />
               </span>
               <div>
                 <strong>
@@ -401,7 +404,9 @@ export default function OwlAidChat({
           <div className={styles.chatMessages} role="log" aria-live="polite" aria-relevant="additions text">
             {messages.length === 0 && assistantMode === "school" && (
               <div className={styles.welcome}>
-                <div className={styles.welcomeOwl} aria-hidden="true">🦉</div>
+                <div className={styles.welcomeOwl}>
+                  <WiseOwlLogo variant="crest" size={96} framed eager />
+                </div>
                 <h2>Hello! Welcome to OwlAid.</h2>
                 <p>
                   I can answer questions about Wise Owl, its academics, clubs and school values—or switch to IGCSE Study Mode for subject tutoring.
@@ -422,7 +427,9 @@ export default function OwlAidChat({
 
             {messages.length === 0 && assistantMode === "igcse" && (
               <div className={styles.welcome}>
-                <div className={styles.welcomeOwl} aria-hidden="true">🎓</div>
+                <div className={styles.welcomeOwl}>
+                  <WiseOwlLogo variant="crest" size={96} framed eager />
+                </div>
                 <h2>
                   IGCSE Study Mode{activeSubject ? `: ${activeSubject.name}` : ""}
                 </h2>
@@ -450,7 +457,7 @@ export default function OwlAidChat({
                 key={message.id}
               >
                 <div className={styles.avatar} aria-hidden="true">
-                  {message.role === "user" ? "YOU" : assistantMode === "igcse" ? "🎓" : "🦉"}
+                  {message.role === "user" ? "YOU" : <WiseOwlLogo variant="shield" size={22} alt="" />}
                 </div>
                 <div className={styles.messageBody}>
                   <div className={styles.messageText}>{message.text}</div>
@@ -469,7 +476,9 @@ export default function OwlAidChat({
 
             {busy && (
               <div className={`${styles.messageRow} ${styles.fromBot}`}>
-                <div className={styles.avatar} aria-hidden="true">🦉</div>
+                <div className={styles.avatar} aria-hidden="true">
+                  <WiseOwlLogo variant="shield" size={22} alt="" />
+                </div>
                 <div className={styles.typing} aria-label="OwlAid is replying">
                   <span />
                   <span />

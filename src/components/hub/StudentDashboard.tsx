@@ -37,6 +37,7 @@ import type {
   StudyProgressPayload,
 } from '@/lib/study/types';
 import type { Profile } from '@/lib/types';
+import { WiseOwlLogo } from './wise-owl-logo';
 
 function formatShortDate(iso: string): string {
   const date = new Date(iso);
@@ -139,30 +140,35 @@ export function StudentDashboard({
       {/* HERO HEADER */}
       <section className="hub-hero panel">
         <div className="hub-hero-copy">
-          <div className="badge-cluster">
-            <span className="hero-kicker">
-              <span className="tiny-dot" /> WISE OWL HUB 5.0 · WESTGATE
-            </span>
-            {isApproved && study.synced ? (
-              <span className="pill-subtle hub-sync-pill">
-                <Cloud size={13} /> Cloud Progress Synced
-              </span>
-            ) : isApproved ? (
-              <span className="pill-subtle">
-                <CheckCircle2 size={13} /> School Member · Local Sync Fallback
-              </span>
-            ) : (
-              <span className="pill-subtle">
-                <BookOpen size={13} /> Local Practice Preview
-              </span>
-            )}
-          </div>
+          <div className="hub-hero-brand">
+            <WiseOwlLogo variant="crest" size={82} framed eager />
+            <div className="hub-hero-brand-meta">
+              <div className="badge-cluster">
+                <span className="hero-kicker">
+                  <span className="tiny-dot" /> WISE OWL HUB 5.0 · WESTGATE
+                </span>
+                {isApproved && study.synced ? (
+                  <span className="pill-subtle hub-sync-pill">
+                    <Cloud size={13} /> Cloud Progress Synced
+                  </span>
+                ) : isApproved ? (
+                  <span className="pill-subtle">
+                    <CheckCircle2 size={13} /> School Member · Local Sync Fallback
+                  </span>
+                ) : (
+                  <span className="pill-subtle">
+                    <BookOpen size={13} /> Local Practice Preview
+                  </span>
+                )}
+              </div>
 
-          <h1>
-            {isApproved && profile
-              ? `Welcome back, ${profile.display_name}.`
-              : 'Wise Owl Student Hub.'}
-          </h1>
+              <h1>
+                {isApproved && profile
+                  ? `Welcome back, ${profile.display_name}.`
+                  : 'Wise Owl Student Hub.'}
+              </h1>
+            </div>
+          </div>
           <p>
             Your unified workspace for Cambridge IGCSE study coaching, scored subject quizzes, spaced-repetition flashcards, and Wise Owl Westgate student projects.
           </p>

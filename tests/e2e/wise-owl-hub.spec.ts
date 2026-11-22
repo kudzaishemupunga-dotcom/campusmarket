@@ -1,6 +1,8 @@
+import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
 const PGLITE_ADMIN_URL = `http://127.0.0.1:${process.env.PGLITE_SUPABASE_PORT || '54329'}/__test__/admin`;
+const SCREENSHOT_DIR = path.join(process.cwd(), 'test-results', 'visual-qa');
 
 async function testAdminAction(payload: Record<string, unknown>) {
   const res = await fetch(PGLITE_ADMIN_URL, {
@@ -199,4 +201,121 @@ test('Wise Owl Hub 5.0: Responsive layout (360, 390, 768, 1366, 1920) and dark m
   }
   await page.getByRole('button', { name: 'Switch to light mode' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+});
+
+test('Wise Owl High School Westgate official logo, favicon assets, and browser tab title render cleanly across major pages', async ({
+  page,
+}) => {
+  await signIn(page, 'hublearner@wiseowl.test');
+  await page.setViewportSize({ width: 1366, height: 900 });
+
+  // 1. Verify browser tab title and favicon <link> tags + HTTP 200 responses
+  const exactTitleRoutes = ['/', '/hub', '/marketplace', '/about', '/rules'];
+  for (const route of exactTitleRoutes) {
+    await page.goto(route);
+    await expect(page).toHaveTitle('Wise Owl Hub | Wise Owl Westgate');
+  }
+
+  for (const route of ['/owlaid', '/quizzes', '/flashcards']) {
+    await page.goto(route);
+    await expect(page).toHaveTitle(/Wise Owl Hub \| Wise Owl Westgate$/);
+  }
+
+  await page.goto('/hub');
+  const iconLinks = await page.evaluate(() =>
+    Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]')).map((el) => ({
+      rel: el.rel,
+      href: el.getAttribute('href') || '',
+      type: el.type || '',
+      sizes: el.getAttribute('sizes') || '',
+    }))
+  );
+
+  expect(iconLinks.some((l) => l.rel === 'icon' && l.href.includes('/favicon.ico'))).toBe(true);
+  expect(iconLinks.some((l) => l.rel === 'icon' && l.href.includes('/icon.png'))).toBe(true);
+  expect(iconLinks.some((l) => l.rel === 'apple-touch-icon' && l.href.includes('/apple-icon.png'))).toBe(true);
+
+  for (const link of iconLinks) {
+    const res = await page.request.get(link.href);
+    expect(res.status(), `Favicon asset ${link.href} must return HTTP 200`).toBe(200);
+    const contentType = res.headers()['content-type'] || '';
+    expect(contentType, `Favicon asset ${link.href} must be an image`).toMatch(/^image\/(x-icon|vnd\.microsoft\.icon|png)/);
+    const body = await res.body();
+    expect(body.length, `Favicon asset ${link.href} must be non-empty`).toBeGreaterThan(500);
+  }
+
+  // 2. Verify official Wise Owl logo loads with valid aspect ratio across all key routes
+  const assertLogosHealthy = async (routeLabel: string, minVisibleCount: number) => {
+    const logos = page.locator('img[alt="Wise Owl High School Westgate logo"]');
+    const count = await logos.count();
+    expect(count, `${routeLabel} should render at least ${minVisibleCount} official logos`).toBeGreaterThanOrEqual(
+      minVisibleCount
+    );
+    const stats = await logos.evaluateAll((imgs) =>
+      imgs.map((el) => {
+        const img = el as HTMLImageElement;
+        const rect = img.getBoundingClientRect();
+        return {
+          complete: img.complete,
+          naturalWidth: img.naturalWidth,
+          naturalHeight: img.naturalHeight,
+          width: rect.width,
+          height: rect.height,
+        };
+      })
+    );
+    for (const s of stats) {
+      expect(s.complete && s.naturalWidth > 0 && s.naturalHeight > 0, `${routeLabel} logo must load`).toBe(true);
+      if (s.width > 0 && s.height > 0) {
+        const naturalRatio = s.naturalWidth / s.naturalHeight;
+        const renderedRatio = s.width / s.height;
+        expect(
+          Math.abs(renderedRatio - naturalRatio) / naturalRatio,
+          `${routeLabel} logo aspect ratio must not be distorted`
+        ).toBeLessThan(0.05);
+      }
+    }
+  };
+
+  for (const [route, screenshotName] of [
+    ['/', 'branding-home-1366.png'],
+    ['/hub', 'branding-hub-1366.png'],
+    ['/owlaid', 'branding-owlaid-1366.png'],
+    ['/quizzes', 'branding-quizzes-1366.png'],
+    ['/flashcards', 'branding-flashcards-1366.png'],
+    ['/marketplace', 'branding-marketplace-1366.png'],
+    ['/about', 'branding-about-1366.png'],
+  ] as const) {
+    await page.goto(route);
+    await page.waitForLoadState('networkidle');
+    await assertLogosHealthy(route, 3); // header + page + footer
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, screenshotName), fullPage: false });
+  }
+
+  // 3. Check signed-out Auth pages (/login, /signup) branding & title
+  await page.context().clearCookies();
+  for (const route of ['/login', '/signup']) {
+    await page.goto(route);
+    await expect(page).toHaveTitle('Wise Owl Hub | Wise Owl Westgate');
+    await page.waitForLoadState('networkidle');
+    await assertLogosHealthy(route, 3); // header + auth story + auth form + footer
+  }
+  await page.goto('/login');
+  await page.waitForLoadState('networkidle');
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'branding-login-1366.png'), fullPage: false });
+
+  // 4. Mobile 360px & dark mode visual QA snapshots
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('/hub');
+  await page.waitForLoadState('networkidle');
+  await assertLogosHealthy('/hub@360', 3);
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'branding-hub-360.png'), fullPage: false });
+
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto('/hub');
+  await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.waitForLoadState('networkidle');
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'branding-hub-1366-dark.png'), fullPage: false });
+  await page.getByRole('button', { name: 'Switch to light mode' }).click();
 });

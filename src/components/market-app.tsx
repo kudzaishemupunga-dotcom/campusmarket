@@ -29,6 +29,7 @@ import { AboutPage, AccountPage, AuthPage, PolicyPage } from './account-pages';
 import { SellerLandingPage, SellerPortalWorkspace, SellerRegisterPage } from './seller-pages';
 import { AdminPage } from './admin-pages';
 import { PlatformFooter, PlatformHeader, PlatformMobileNav } from './hub/platform-shell';
+import { WiseOwlLogo } from './hub/wise-owl-logo';
 
 type Query = Record<string, string | undefined>;
 type MarketContext = {
@@ -308,11 +309,16 @@ function HomePage() {
 
         <div className="hero-showcase" aria-label="Wise Owl Student Project Framework">
           <div className="showcase-card main-crest-card">
-            <div className="showcase-header">
-              <span className="eyebrow">SCHOOL MOTTO</span>
-              <Award size={20} />
+            <div className="showcase-crest-top">
+              <WiseOwlLogo variant="crest" size={108} framed eager className="hero-crest-badge" />
+              <div className="showcase-crest-meta">
+                <div className="showcase-header">
+                  <span className="eyebrow">SCHOOL MOTTO</span>
+                  <Award size={18} />
+                </div>
+                <h2>“Going an Extra Mile”</h2>
+              </div>
             </div>
-            <h2>“Going an Extra Mile”</h2>
             <p>
               Uniting Cambridge IGCSE revision tools, OwlAid academic tutoring, and real student-built goods at Wise Owl High School Westgate.
             </p>
@@ -568,6 +574,7 @@ function MarketplaceCatalog({ path, query }: { path: string; query: Query }) {
           currentCategory?.description ||
           'Browse real, school-approved products designed and produced by Wise Owl High School Westgate learners and project groups.'
         }
+        showCrest
       >
         <Link
           className="button primary"
@@ -846,6 +853,7 @@ function ProjectsExplorer({ path }: { path: string }) {
         eyebrow="WISE OWL WESTGATE · COLLABORATIVE & INDIVIDUAL PROJECTS"
         title="Student Projects Behind the Products."
         description="Explore verified Wise Owl learner teams developing real goods through School-Based Projects."
+        showCrest
       >
         <Link className="button primary" href="/seller/group">
           <FolderKanban size={16} /> Start a Project Group

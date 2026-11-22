@@ -37,6 +37,7 @@ import type {
   StudySubjectId,
 } from '@/lib/study/types';
 import type { Profile } from '@/lib/types';
+import { WiseOwlLogo } from './wise-owl-logo';
 
 type QueueFilter = 'due' | 'all' | 'practice' | 'mastered' | 'custom';
 
@@ -397,12 +398,15 @@ export function FlashcardStudio({
   return (
     <div className="study-studio" data-testid="flashcard-studio">
       <div className="page-heading">
-        <div>
-          <p className="eyebrow">WISE OWL HUB 5.0 · SPACED REPETITION STUDIO</p>
-          <h1>IGCSE Flashcards &amp; Active Recall.</h1>
-          <p>
-            Flip curated Cambridge IGCSE cards or author your own. Rate your recall honestly—spaced repetition schedules each card right before you forget it.
-          </p>
+        <div className="page-heading-lead">
+          <WiseOwlLogo variant="crest" size={68} framed eager className="page-heading-crest" />
+          <div className="page-heading-copy">
+            <p className="eyebrow">WISE OWL HUB 5.0 · SPACED REPETITION STUDIO</p>
+            <h1>IGCSE Flashcards &amp; Active Recall.</h1>
+            <p>
+              Flip curated Cambridge IGCSE cards or author your own. Rate your recall honestly—spaced repetition schedules each card right before you forget it.
+            </p>
+          </div>
         </div>
         <div className="heading-actions">
           <button

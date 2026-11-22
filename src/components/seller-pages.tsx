@@ -34,6 +34,7 @@ import {
 } from '@/lib/permissions';
 import type { SellerGroup } from '@/lib/types';
 import { availabilityLabel, Dialog, EmptyState, money, PageHeading, Status } from './ui';
+import { WiseOwlLogo } from './hub/wise-owl-logo';
 import { ListingActions } from './listing-pages';
 import { useMarket } from './market-app';
 
@@ -69,8 +70,13 @@ export function SellerLandingPage() {
     <div className="seller-landing">
       <section className="seller-hero panel">
         <div className="seller-hero-copy">
-          <p className="eyebrow">WISE OWL WESTGATE · SELLER PORTAL</p>
-          <h1>Turn Your School Project Into a Product.</h1>
+          <div className="seller-hero-brand">
+            <WiseOwlLogo variant="crest" size={76} framed eager />
+            <div>
+              <p className="eyebrow">WISE OWL WESTGATE · SELLER PORTAL</p>
+              <h1>Turn Your School Project Into a Product.</h1>
+            </div>
+          </div>
           <p>
             Built for Wise Owl High School Westgate learners creating real goods through Heritage-Based Curriculum projects. Register individually or collaborate as a verified project group—with school supervision at every step.
           </p>
@@ -185,6 +191,7 @@ export function SellerRegisterPage({ query }: { query: Record<string, string | u
         eyebrow="SELLER ONBOARDING · WISE OWL WESTGATE"
         title="Register as a Student Project Seller."
         description="Showcase real goods produced through your class or collaborative school project. A school administrator must approve membership and seller access before products can be published."
+        showCrest
       />
 
       <div className="form-layout">

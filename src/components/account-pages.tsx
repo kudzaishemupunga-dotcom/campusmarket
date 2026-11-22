@@ -10,7 +10,6 @@ import {
   BookOpen,
   Check,
   CheckCircle2,
-  GraduationCap,
   Heart,
   Inbox,
   LockKeyhole,
@@ -23,6 +22,7 @@ import {
   Users,
 } from 'lucide-react';
 import type { ActionName } from '@/lib/types';
+import { WiseOwlLogo } from './hub/wise-owl-logo';
 import { EmptyState, money, PageHeading, ProductCard, Status } from './ui';
 import { useMarket } from './market-app';
 
@@ -57,16 +57,19 @@ export function AuthPage({
   return (
     <div className="auth-layout">
       <div className="auth-story">
-        <span className="hero-kicker">
-          <ShieldCheck size={16} /> WISE OWL HIGH SCHOOL WESTGATE · HARARE
-        </span>
+        <div className="auth-story-brand">
+          <WiseOwlLogo variant="crest" size={92} framed eager />
+          <span className="hero-kicker">
+            <ShieldCheck size={16} /> WISE OWL HIGH SCHOOL WESTGATE · HARARE
+          </span>
+        </div>
         <h1>
           Going an Extra Mile.
           <br />
           <span>Student Innovation</span> in Practice.
         </h1>
         <p>
-          CampusMarket connects Wise Owl Westgate learners, project groups, and approved buyers around authentic goods created through School-Based Projects.
+          Wise Owl Hub &amp; CampusMarket unite Wise Owl Westgate learners around Cambridge IGCSE revision tools, OwlAid tutoring, and authentic School-Based Project products.
         </p>
 
         <div className="auth-pillars">
@@ -99,9 +102,12 @@ export function AuthPage({
           <ArrowLeft size={15} /> Back to CampusMarket
         </Link>
         <div className="auth-form-inner">
-          <span className="auth-icon">
-            {forgot || reset ? <LockKeyhole size={24} /> : <GraduationCap size={25} />}
-          </span>
+          <div className="auth-form-brand">
+            <span className="auth-icon auth-icon-crest">
+              <WiseOwlLogo variant="shield" size={36} eager />
+            </span>
+            <span className="auth-form-school">Wise Owl High School Westgate</span>
+          </div>
           <h2>{title}</h2>
           <p>
             {signup
@@ -261,9 +267,9 @@ export function AccountPage({
   if (pending) {
     return (
       <div className="approval-page">
-        <span className="approval-icon">
-          <ShieldCheck size={42} />
-        </span>
+        <div className="approval-crest">
+          <WiseOwlLogo variant="crest" size={112} framed eager />
+        </div>
         <p className="eyebrow">WISE OWL WESTGATE · MEMBERSHIP VERIFICATION</p>
         <h1>
           {status === 'approved'
@@ -335,6 +341,7 @@ export function AccountPage({
         eyebrow="WISE OWL MEMBER ACCOUNT"
         title={`Hello, ${data.profile?.display_name || 'Member'}.`}
         description="Track your supervised purchase requests, saved project products, and account preferences."
+        showCrest
       >
         <div className="button-row">
           <Link className="button secondary" href="/seller/dashboard">
@@ -529,6 +536,7 @@ export function AboutPage() {
         eyebrow="PROJECT INFORMATION · WISE OWL HIGH SCHOOL WESTGATE"
         title="Where Classroom Projects Become Real Enterprise."
         description="CampusMarket is a dedicated digital platform built for learners at Wise Owl High School Westgate in Harare, Zimbabwe to showcase and coordinate supervised sales of products developed through School-Based Projects."
+        showCrest
       />
 
       <div className="about-grid">
@@ -581,6 +589,7 @@ export function PolicyPage({ path }: { path: string }) {
             ? 'How CampusMarket protects learner privacy at Wise Owl High School Westgate.'
             : 'Shared standards for showcasing and exchanging real school-project products.'
         }
+        showCrest
       />
       <div className="inline-notice">
         <ShieldCheck size={21} />

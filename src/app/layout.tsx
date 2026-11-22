@@ -4,9 +4,10 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Wise Owl Hub · Study & Student Project Marketplace',
-    template: '%s · Wise Owl Hub Westgate',
+    default: 'Wise Owl Hub | Wise Owl Westgate',
+    template: '%s · Wise Owl Hub | Wise Owl Westgate',
   },
+  applicationName: 'Wise Owl Hub',
   description:
     'Wise Owl Hub 5.0 unites Cambridge IGCSE study tools (OwlAid Study Mode, Interactive Quizzes, Flashcards) with CampusMarket for Wise Owl High School Westgate, Harare.',
   robots: { index: false, follow: false },

@@ -6,7 +6,7 @@ import { getHubServerData } from '@/lib/server/hub-data';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'IGCSE Subject Quizzes',
+  title: 'IGCSE Quizzes',
   description:
     'Interactive Cambridge IGCSE subject quizzes with server-verified scoring, grade estimates, topic mastery diagnostics, and OwlAid explanations.',
 };

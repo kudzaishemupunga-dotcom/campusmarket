@@ -6,7 +6,7 @@ import { getHubServerData } from '@/lib/server/hub-data';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'IGCSE Flashcards & Spaced Review',
+  title: 'IGCSE Flashcards',
   description:
     'Interactive Cambridge IGCSE flashcards with Leitner/SM-2 spaced repetition, hints, custom student decks, and cloud sync.',
 };
