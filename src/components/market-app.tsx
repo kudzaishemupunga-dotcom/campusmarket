@@ -5,18 +5,13 @@ import { useRouter } from 'next/navigation';
 import { createContext, useContext, useState } from 'react';
 import {
   ArrowRight,
-  Award,
-  BookOpen,
   BrainCircuit,
   ChevronDown,
   ClipboardCheck,
   FolderKanban,
   Layers,
-  LayoutDashboard,
   Plus,
   Search,
-  ShieldCheck,
-  Sparkles,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -228,172 +223,95 @@ function ConfigurationRequiredState() {
 function HomePage() {
   const { data, mutate } = useMarket();
   const approvedListings = data.listings.filter((l) => l.status === 'active');
-  const approvedGroups = data.groups.filter((g) => g.verification_status === 'approved');
   const canListProducts =
     isApprovedSeller(data.profile) ||
     data.groups.some((g) => canManageGroupProducts(data.profile, g));
 
-  const values = [
-    'Excellence',
-    'Creativity',
-    'Collaboration',
-    'Passion',
-    'Respect',
-    'Responsibility',
-    'Determination',
-  ];
-
-  const howItWorks = [
-    {
-      step: '01',
-      title: 'Students create projects',
-      text: 'Learners design, engineer, grow, or craft real products through their Wise Owl school projects.',
-    },
-    {
-      step: '02',
-      title: 'Students or groups register as sellers',
-      text: 'Register as an independent seller or establish a collaborative project group without sharing passwords.',
-    },
-    {
-      step: '03',
-      title: 'Products are submitted for approval',
-      text: 'Upload real photographs, set USD prices and stock quantities, and submit for school moderation.',
-    },
-    {
-      step: '04',
-      title: 'The school community discovers products',
-      text: 'Approved Wise Owl members search and explore verified learner-made goods and project teams.',
-    },
-    {
-      step: '05',
-      title: 'Purchases are coordinated safely',
-      text: 'Buyers submit supervised purchase requests with zero exposed contact details and atomic stock tracking.',
-    },
-  ];
-
   return (
-    <>
-      {/* HERO SECTION */}
-      <section className="hero">
+    <div className="home-stack">
+      {/* 1. CLEAN HERO */}
+      <section className="hero hero--clean">
         <div className="hero-copy">
-          <div className="hero-kicker">
-            <span className="tiny-dot" />
-            WISE OWL HIGH SCHOOL WESTGATE · HARARE
-          </div>
+          <p className="hero-school-label">Wise Owl High School Westgate · Harare</p>
           <h1>
             Made by Students.
             <br />
             <span>Powered by Ideas.</span>
           </h1>
           <p>
-            Discover innovative products created by learners at Wise Owl High School Westgate.
+            Cambridge IGCSE study tools, OwlAid tutoring, and authentic student-built projects—together in one calm school workspace.
           </p>
           <div className="button-row">
             <Link className="button primary hero-button" href="/hub">
-              Open Wise Owl Hub <ArrowRight size={18} />
+              Open Student Hub <ArrowRight size={17} />
             </Link>
             <Link className="button secondary hero-secondary-btn" href="/marketplace">
-              Explore Products
+              Explore Marketplace
             </Link>
-            <Link className="button secondary hero-secondary-btn" href="/seller/register">
-              Become a Seller
-            </Link>
-          </div>
-          <div className="hero-trust">
-            <ShieldCheck size={18} />
-            <span>
-              Aligned with Cambridge IGCSE & Zimbabwe’s Heritage-Based Curriculum · School-verified learners & groups
-            </span>
-          </div>
-        </div>
-
-        <div className="hero-showcase" aria-label="Wise Owl Student Project Framework">
-          <div className="showcase-card main-crest-card">
-            <div className="showcase-crest-top">
-              <WiseOwlLogo variant="crest" size={108} framed eager className="hero-crest-badge" />
-              <div className="showcase-crest-meta">
-                <div className="showcase-header">
-                  <span className="eyebrow">SCHOOL MOTTO</span>
-                  <Award size={18} />
-                </div>
-                <h2>“Going an Extra Mile”</h2>
-              </div>
-            </div>
-            <p>
-              Uniting Cambridge IGCSE revision tools, OwlAid academic tutoring, and real student-built goods at Wise Owl High School Westgate.
-            </p>
-            <div className="showcase-pillars">
-              <div>
-                <BrainCircuit size={16} />
-                <span>OwlAid 5.0 IGCSE Study Mode</span>
-              </div>
-              <div>
-                <ClipboardCheck size={16} />
-                <span>Scored Quizzes & Spaced Flashcards</span>
-              </div>
-              <div>
-                <ShieldCheck size={16} />
-                <span>Moderated Student Marketplace</span>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* WISE OWL HUB 5.0 UNIFIED STUDY SUITE */}
+      {/* 2. THREE CONCISE STUDY CARDS */}
       <section className="home-section" aria-labelledby="section-study-hub">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">WISE OWL HUB 5.0 · CAMBRIDGE IGCSE SUITE</p>
-            <h2 id="section-study-hub">Study Smarter Across Every Subject</h2>
+            <p className="eyebrow">Your learning</p>
+            <h2 id="section-study-hub">Study tools built for IGCSE</h2>
           </div>
           <Link href="/hub">
-            Open Student Dashboard <ArrowRight size={16} />
+            Open Student Hub <ArrowRight size={15} />
           </Link>
         </div>
-        <div className="hub-launcher-grid">
-          <Link href="/hub" className="panel hub-launcher-card">
-            <span className="hub-launcher-icon"><LayoutDashboard size={22} /></span>
-            <h3>Student Dashboard</h3>
-            <p>Track IGCSE readiness across 8 subjects, review quiz grades, streaks, and CampusMarket activity in one hub.</p>
-            <span className="card-cta">Open Dashboard <ArrowRight size={14} /></span>
+        <div className="study-trio-grid">
+          <Link href="/owlaid?mode=igcse" className="panel study-feature-card">
+            <span className="study-feature-icon">
+              <BrainCircuit size={20} />
+            </span>
+            <h3>OwlAid</h3>
+            <p>Ask school questions or switch to Cambridge IGCSE tutoring for clear explanations and mark-scheme guidance.</p>
+            <span className="card-cta">
+              Open OwlAid <ArrowRight size={14} />
+            </span>
           </Link>
-          <Link href="/owlaid?mode=igcse" className="panel hub-launcher-card">
-            <span className="hub-launcher-icon"><BrainCircuit size={22} /></span>
-            <h3>OwlAid IGCSE Study Mode</h3>
-            <p>Syllabus-aligned explanations, Cambridge mark-scheme coaching, Socratic hints, and school info assistance.</p>
-            <span className="card-cta">Launch OwlAid Study <ArrowRight size={14} /></span>
+          <Link href="/quizzes" className="panel study-feature-card">
+            <span className="study-feature-icon">
+              <ClipboardCheck size={20} />
+            </span>
+            <h3>Quizzes</h3>
+            <p>Practise across eight IGCSE subjects with immediate scoring, grade estimates, and topic feedback.</p>
+            <span className="card-cta">
+              Start a quiz <ArrowRight size={14} />
+            </span>
           </Link>
-          <Link href="/quizzes" className="panel hub-launcher-card">
-            <span className="hub-launcher-icon"><ClipboardCheck size={22} /></span>
-            <h3>Subject Quizzes</h3>
-            <p>64 Core & Extended IGCSE questions with real scoring, grade estimates (A*–U), topic diagnostics, and exam timer.</p>
-            <span className="card-cta">Start a Quiz <ArrowRight size={14} /></span>
-          </Link>
-          <Link href="/flashcards" className="panel hub-launcher-card">
-            <span className="hub-launcher-icon"><Layers size={22} /></span>
-            <h3>Spaced Flashcards</h3>
-            <p>Active-recall flip decks with Leitner spaced repetition, custom student card creation, and due-review queues.</p>
-            <span className="card-cta">Review Flashcards <ArrowRight size={14} /></span>
+          <Link href="/flashcards" className="panel study-feature-card">
+            <span className="study-feature-icon">
+              <Layers size={20} />
+            </span>
+            <h3>Flashcards</h3>
+            <p>Review key definitions and formulas with spaced repetition or build your own personal deck.</p>
+            <span className="card-cta">
+              Review flashcards <ArrowRight size={14} />
+            </span>
           </Link>
         </div>
       </section>
 
-      {/* SECTION A: DISCOVER STUDENT-MADE PRODUCTS */}
+      {/* 3. COMPACT STUDENT MARKETPLACE */}
       <section className="home-section" aria-labelledby="section-discover">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">REAL LEARNER CRAFTSMANSHIP</p>
-            <h2 id="section-discover">Discover Student-Made Products</h2>
+            <p className="eyebrow">CampusMarket</p>
+            <h2 id="section-discover">Student-made products</h2>
           </div>
           <Link href="/marketplace">
-            Open Marketplace <ArrowRight size={16} />
+            Explore Marketplace <ArrowRight size={15} />
           </Link>
         </div>
 
         {approvedListings.length > 0 ? (
           <div className="product-grid">
-            {approvedListings.slice(0, 8).map((l) => (
+            {approvedListings.slice(0, 4).map((l) => (
               <ProductCard
                 key={l.id}
                 listing={l}
@@ -408,138 +326,37 @@ function HomePage() {
             title="No projects listed yet."
             text="Be among the first to showcase your project."
             href={canListProducts ? '/seller/products/new' : '/seller/register'}
-            action={canListProducts ? 'List Your First Product' : 'Become a Seller'}
+            action={canListProducts ? 'List your first product' : 'Become a seller'}
             secondaryHref="/seller"
-            secondaryAction="Explore Seller Portal"
+            secondaryAction="Seller Portal"
           />
         )}
       </section>
 
-      {/* SECTION B: EXPLORE PROJECTS */}
-      <section className="home-section" aria-labelledby="section-projects">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">COLLABORATIVE & INDIVIDUAL INQUIRY</p>
-            <h2 id="section-projects">Explore Projects</h2>
-          </div>
-          <Link href="/projects">
-            View Project Directory <ArrowRight size={16} />
-          </Link>
-        </div>
-
-        {approvedGroups.length > 0 ? (
-          <div className="projects-grid">
-            {approvedGroups.slice(0, 6).map((group) => (
-              <article className="panel project-group-tile" key={group.id}>
-                <div className="badge-cluster">
-                  <span className="pill-subtle">
-                    <Users size={13} /> Verified Group
-                  </span>
-                  {group.learning_area && <span className="pill-subtle">{group.learning_area}</span>}
-                </div>
-                <h3>
-                  <Link href={`/projects/${group.slug}`}>{group.name}</Link>
-                </h3>
-                <p>{group.project_description}</p>
-                <Link href={`/projects/${group.slug}`} className="card-cta">
-                  Explore Group Products <ArrowRight size={14} />
-                </Link>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="category-grid">
-            {(data.categories.length ? data.categories : fallbackCurriculumAreas).map((category, i) => {
-              const Icon = categoryIcons[i % categoryIcons.length];
-              return (
-                <Link
-                  className="category-tile"
-                  href={data.profile?.verification_status === 'approved' ? `/category/${category.slug}` : '/projects'}
-                  key={category.slug}
-                >
-                  <span className="category-icon">
-                    <Icon size={24} strokeWidth={1.6} />
-                  </span>
-                  <div>
-                    <strong>{category.name}</strong>
-                    <small>{category.description}</small>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* SECTION C: HOW CAMPUSMARKET WORKS */}
-      <section className="home-section" aria-labelledby="section-how">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">TRANSPARENT & SCHOOL-SUPERVISED</p>
-            <h2 id="section-how">How CampusMarket Works</h2>
+      {/* 4. MINIMAL SCHOOL IDENTITY SECTION */}
+      <section className="home-section school-identity-card panel" aria-label="Wise Owl High School Westgate identity">
+        <div className="school-identity-lead">
+          <WiseOwlLogo variant="crest" size={74} framed eager />
+          <div className="school-identity-copy">
+            <p className="school-identity-motto">“Going an Extra Mile”</p>
+            <p className="muted">
+              Supporting Cambridge IGCSE study and supervised School-Based Project enterprise at Wise Owl High School Westgate.
+            </p>
           </div>
         </div>
-        <div className="steps-grid">
-          {howItWorks.map((item) => (
-            <article className="panel step-card" key={item.step}>
-              <span className="step-number">{item.step}</span>
-              <h3>{item.title}</h3>
-              <p>{item.text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* SECTION D: BUILT AROUND LEARNING */}
-      <section className="home-section learning-banner panel" aria-labelledby="section-learning">
-        <div className="learning-copy">
-          <p className="eyebrow">HERITAGE-BASED CURRICULUM · ENTREPRENEURSHIP</p>
-          <h2 id="section-learning">Built Around Learning</h2>
-          <p>
-            CampusMarket supports practical problem-solving, applied technology, and responsible student enterprise at Wise Owl High School Westgate. Every listing represents real learner effort—reinforcing accountability, financial literacy, teamwork, and pride in original work.
-          </p>
-          <div className="values-pills">
-            {values.map((v) => (
-              <span key={v} className="value-pill">
-                {v}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="learning-aside">
-          <BookOpen size={32} />
-          <strong>Zero Fabricated Listings</strong>
-          <p>
-            Products appear only after real students or project groups create them and Wise Owl administrators approve them.
-          </p>
+        <div className="school-identity-links">
           <Link href="/about" className="text-link">
-            Read about the project <ArrowRight size={14} />
+            About the platform <ArrowRight size={14} />
+          </Link>
+          <Link href="/seller" className="text-link">
+            Seller Portal <ArrowRight size={14} />
+          </Link>
+          <Link href="/rules" className="text-link">
+            School rules <ArrowRight size={14} />
           </Link>
         </div>
       </section>
-
-      {/* SECTION E: JOIN AS A SELLER */}
-      <section className="sell-callout" aria-labelledby="section-join-seller">
-        <div className="callout-icon">
-          <Sparkles size={28} />
-        </div>
-        <div>
-          <p className="eyebrow">DEDICATED SELLER PORTAL</p>
-          <h2 id="section-join-seller">Have a school project ready to share?</h2>
-          <p>
-            Register as an Individual Seller or launch a shared Project Group workspace with your classmates.
-          </p>
-        </div>
-        <div className="button-row">
-          <Link className="button primary" href="/seller">
-            Open Seller Portal <ArrowRight size={17} />
-          </Link>
-          <Link className="button secondary" href="/seller/register">
-            Register Now
-          </Link>
-        </div>
-      </section>
-    </>
+    </div>
   );
 }
 
@@ -568,13 +385,12 @@ function MarketplaceCatalog({ path, query }: { path: string; query: Query }) {
   return (
     <>
       <PageHeading
-        eyebrow="WISE OWL WESTGATE · STUDENT PROJECT CATALOG"
-        title={currentCategory?.name || 'Student Project Marketplace.'}
+        eyebrow="CampusMarket"
+        title={currentCategory?.name || 'Student Marketplace'}
         description={
           currentCategory?.description ||
-          'Browse real, school-approved products designed and produced by Wise Owl High School Westgate learners and project groups.'
+          'Approved products designed and made by Wise Owl High School Westgate learners and project groups.'
         }
-        showCrest
       >
         <Link
           className="button primary"
@@ -850,10 +666,9 @@ function ProjectsExplorer({ path }: { path: string }) {
   return (
     <>
       <PageHeading
-        eyebrow="WISE OWL WESTGATE · COLLABORATIVE & INDIVIDUAL PROJECTS"
-        title="Student Projects Behind the Products."
-        description="Explore verified Wise Owl learner teams developing real goods through School-Based Projects."
-        showCrest
+        eyebrow="School projects"
+        title="Student project teams"
+        description="Explore verified Wise Owl learner teams building goods through School-Based Projects."
       >
         <Link className="button primary" href="/seller/group">
           <FolderKanban size={16} /> Start a Project Group
@@ -899,6 +714,38 @@ function ProjectsExplorer({ path }: { path: string }) {
           secondaryAction="Browse Marketplace"
         />
       )}
+
+      <section className="home-section" aria-labelledby="projects-learning-areas">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Curriculum areas</p>
+            <h2 id="projects-learning-areas">Browse by subject area</h2>
+          </div>
+          <Link href="/marketplace">
+            Open Marketplace <ArrowRight size={15} />
+          </Link>
+        </div>
+        <div className="category-grid">
+          {(data.categories.length ? data.categories : fallbackCurriculumAreas).map((category, i) => {
+            const Icon = categoryIcons[i % categoryIcons.length];
+            return (
+              <Link
+                className="category-tile"
+                href={data.profile?.verification_status === 'approved' ? `/category/${category.slug}` : '/marketplace'}
+                key={category.slug}
+              >
+                <span className="category-icon">
+                  <Icon size={20} strokeWidth={1.6} />
+                </span>
+                <div>
+                  <strong>{category.name}</strong>
+                  <small>{category.description}</small>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </>
   );
 }

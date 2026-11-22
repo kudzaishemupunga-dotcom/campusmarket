@@ -19,7 +19,6 @@ import {
   X,
 } from 'lucide-react';
 import type { Category, Listing } from '@/lib/types';
-import { WiseOwlLogo } from './hub/wise-owl-logo';
 
 export const categoryIcons = [Hammer, Sprout, Utensils, Scissors, FlaskConical, Palette, Cpu, Handshake];
 
@@ -166,32 +165,19 @@ export function PageHeading({
   eyebrow,
   title,
   description,
-  showCrest = false,
   children,
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
-  showCrest?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <div className="page-heading">
-      <div className={showCrest ? 'page-heading-lead' : undefined}>
-        {showCrest && (
-          <WiseOwlLogo
-            variant="crest"
-            size={66}
-            framed
-            eager
-            className="page-heading-crest"
-          />
-        )}
-        <div className="page-heading-copy">
-          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h1>{title}</h1>
-          {description && <p>{description}</p>}
-        </div>
+      <div>
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        <h1>{title}</h1>
+        {description && <p>{description}</p>}
       </div>
       {children && <div className="heading-actions">{children}</div>}
     </div>

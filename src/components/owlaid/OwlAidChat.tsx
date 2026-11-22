@@ -20,17 +20,17 @@ type Message = {
 };
 
 const schoolSuggestions = [
-  { icon: "🏛️", label: "Mission & vision", question: "What are the school mission and vision?" },
-  { icon: "🎓", label: "Cambridge curriculum", question: "What curriculum does the school follow?" },
-  { icon: "🏅", label: "Sports & clubs", question: "What sports and clubs are available?" },
-  { icon: "📍", label: "Location & contact", question: "Where is Wise Owl High School Westgate located?" },
+  { label: "Mission & vision", question: "What are the school mission and vision?" },
+  { label: "Cambridge curriculum", question: "What curriculum does the school follow?" },
+  { label: "Sports & clubs", question: "What sports and clubs are available?" },
+  { label: "Location & contact", question: "Where is Wise Owl High School Westgate located?" },
 ];
 
 const COACH_MODES: readonly { id: StudyCoachMode; label: string; blurb: string }[] = [
-  { id: "explain", label: "Concept Explainer", blurb: "Step-by-step explanation + worked example" },
-  { id: "mark-scheme", label: "Mark-Scheme Coach", blurb: "Command words & examiner marking points" },
-  { id: "socratic", label: "Hint-First Tutor", blurb: "Guided hints so you build active recall" },
-  { id: "revision-plan", label: "Revision Sheet", blurb: "High-yield notes + 3 self-check questions" },
+  { id: "explain", label: "Concept Explainer", blurb: "Clear explanation with a worked example" },
+  { id: "mark-scheme", label: "Mark-Scheme Coach", blurb: "Command words and examiner points" },
+  { id: "socratic", label: "Hint-First Tutor", blurb: "Guided hints for active recall" },
+  { id: "revision-plan", label: "Revision Sheet", blurb: "Concise notes and self-check questions" },
 ];
 
 let nextId = 0;
@@ -152,13 +152,9 @@ export default function OwlAidChat({
       <section className={styles.banner}>
         <div className={styles.bannerInner}>
           <div className={styles.brand}>
-            <div className={styles.logo}>
-              <WiseOwlLogo variant="shield" size={40} eager />
-            </div>
             <div>
-              <div className={styles.schoolName}>WISE OWL HUB 5.0 · WESTGATE</div>
-              <h1>OwlAid <span>5.0</span></h1>
-              <p>School information assistant &amp; Cambridge IGCSE Study Mode</p>
+              <h1>OwlAid</h1>
+              <p>School guide &amp; Cambridge IGCSE study assistant</p>
             </div>
           </div>
 
@@ -171,7 +167,7 @@ export default function OwlAidChat({
               onClick={() => setAssistantMode("school")}
               data-testid="owlaid-mode-school"
             >
-              <BookOpen size={15} /> School Info
+              <BookOpen size={15} /> School info
             </button>
             <button
               type="button"
@@ -181,7 +177,7 @@ export default function OwlAidChat({
               onClick={() => setAssistantMode("igcse")}
               data-testid="owlaid-mode-igcse"
             >
-              <BrainCircuit size={15} /> IGCSE Study Mode
+              <BrainCircuit size={15} /> IGCSE study
             </button>
           </div>
         </div>
@@ -262,22 +258,19 @@ export default function OwlAidChat({
       <div className={styles.layout}>
         <aside className={styles.sidebar} aria-label="Resources and quick prompts">
           <div className={styles.sidebarIntro}>
-            <div className={styles.eyebrow}>
-              {assistantMode === "igcse" ? "IGCSE STUDY MODE" : "WELCOME TO OWLAID"}
-            </div>
             <h2>
               {assistantMode === "igcse"
                 ? activeSubject
                   ? `${activeSubject.name}`
                   : "Cambridge IGCSE Tutor"
-                : "Ask. Discover. Learn."}
+                : "School guide"}
             </h2>
             <p>
               {assistantMode === "igcse"
                 ? activeSubject
                   ? `${activeSubject.syllabusCode} · ${COACH_MODES.find((c) => c.id === coachMode)?.blurb}`
-                  : "Get structured syllabus explanations, mark-scheme breakdowns, and active-recall coaching."
-                : "Explore school information with built-in answers and switch to IGCSE Study Mode anytime."}
+                  : "Clear syllabus explanations, mark-scheme guidance, and study hints."
+                : "Ask about Wise Owl Westgate or switch to IGCSE study anytime."}
             </p>
           </div>
 
@@ -286,7 +279,7 @@ export default function OwlAidChat({
               <div className={styles.sideSection}>
                 <h3>Quick questions</h3>
                 <div className={styles.quickList}>
-                  {schoolSuggestions.map(({ icon, label, question }) => (
+                  {schoolSuggestions.map(({ label, question }) => (
                     <button
                       type="button"
                       className={styles.quickButton}
@@ -294,7 +287,6 @@ export default function OwlAidChat({
                       key={question}
                       onClick={() => void submitQuestion(question)}
                     >
-                      <span aria-hidden="true">{icon}</span>
                       <span>{label}</span>
                       <span aria-hidden="true">↗</span>
                     </button>
@@ -311,13 +303,13 @@ export default function OwlAidChat({
                 </dl>
               </div>
               <div className={styles.note}>
-                School facts are from OwlAid 3.8 and should be confirmed by school staff. Staff names, hours and schedules are unverified until confirmed. OwlAid is not an official announcement channel.
+                School facts should be confirmed with school staff. Staff names, hours, and schedules are unverified until confirmed. OwlAid is not an official announcement channel.
               </div>
             </>
           ) : (
             <>
               <div className={styles.sideSection}>
-                <h3>IGCSE Study Prompts</h3>
+                <h3>Suggested topics</h3>
                 <div className={styles.quickList}>
                   {igcsePrompts.map(({ label, prompt }) => (
                     <button
@@ -337,7 +329,7 @@ export default function OwlAidChat({
 
               {activeSubject && (
                 <div className={styles.sideSection}>
-                  <h3>Key Syllabus Formulas &amp; Facts</h3>
+                  <h3>Key formulas &amp; facts</h3>
                   <dl className={styles.formulaList}>
                     {activeSubject.keyFormulasOrFacts.map((fact) => (
                       <div key={fact.label}>
@@ -350,7 +342,7 @@ export default function OwlAidChat({
               )}
 
               <div className={styles.note}>
-                IGCSE Study Mode pairs Gemini tutoring with built-in offline syllabus references. Always cross-check coursework deadlines and official exam timetables with your Wise Owl teachers.
+                Always check coursework deadlines and official exam timetables with your teachers.
               </div>
             </>
           )}
@@ -404,12 +396,12 @@ export default function OwlAidChat({
           <div className={styles.chatMessages} role="log" aria-live="polite" aria-relevant="additions text">
             {messages.length === 0 && assistantMode === "school" && (
               <div className={styles.welcome}>
-                <div className={styles.welcomeOwl}>
-                  <WiseOwlLogo variant="crest" size={96} framed eager />
+                <div className={styles.welcomeOwl} aria-hidden="true">
+                  <WiseOwlLogo variant="shield" size={44} alt="" />
                 </div>
                 <h2>Hello! Welcome to OwlAid.</h2>
                 <p>
-                  I can answer questions about Wise Owl, its academics, clubs and school values—or switch to IGCSE Study Mode for subject tutoring.
+                  Ask about Wise Owl Westgate academics, clubs, and values—or switch to IGCSE study for subject tutoring.
                 </p>
                 <div className={styles.welcomeChips}>
                   <button type="button" onClick={() => void submitQuestion("What is the school motto?")} disabled={busy}>
@@ -419,7 +411,7 @@ export default function OwlAidChat({
                     Our founders
                   </button>
                   <button type="button" onClick={() => setAssistantMode("igcse")} disabled={busy}>
-                    Switch to IGCSE Study Mode →
+                    Switch to IGCSE study →
                   </button>
                 </div>
               </div>
@@ -427,14 +419,14 @@ export default function OwlAidChat({
 
             {messages.length === 0 && assistantMode === "igcse" && (
               <div className={styles.welcome}>
-                <div className={styles.welcomeOwl}>
-                  <WiseOwlLogo variant="crest" size={96} framed eager />
+                <div className={styles.welcomeOwl} aria-hidden="true">
+                  <BrainCircuit size={26} />
                 </div>
                 <h2>
-                  IGCSE Study Mode{activeSubject ? `: ${activeSubject.name}` : ""}
+                  {activeSubject ? activeSubject.name : "Cambridge IGCSE study"}
                 </h2>
                 <p>
-                  Ask a syllabus concept, paste a past-paper topic, or choose a quick prompt below for structured Cambridge {tier === "extended" ? "Extended" : "Core"} guidance.
+                  Ask a syllabus question, paste a topic, or pick a prompt below for {tier === "extended" ? "Extended" : "Core"} guidance.
                 </p>
                 <div className={styles.welcomeChips}>
                   {igcsePrompts.map(({ label, prompt }) => (
@@ -465,9 +457,9 @@ export default function OwlAidChat({
                     <span className={styles.messageSource}>
                       {message.mode === "local"
                         ? message.studyBadge
-                          ? `📘 IGCSE Study Reference · ${message.studyBadge}`
-                          : "📚 School knowledge"
-                        : `✦ Gemini AI${message.model ? ` · ${message.model}` : ""}${message.studyBadge ? ` · ${message.studyBadge}` : ""}`}
+                          ? `Syllabus reference · ${message.studyBadge}`
+                          : "School knowledge"
+                        : `AI tutor${message.model ? ` · ${message.model}` : ""}${message.studyBadge ? ` · ${message.studyBadge}` : ""}`}
                     </span>
                   )}
                 </div>

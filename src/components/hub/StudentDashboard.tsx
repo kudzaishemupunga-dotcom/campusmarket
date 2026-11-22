@@ -1,26 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
-  Award,
   BookOpen,
   BrainCircuit,
-  CheckCircle2,
   ClipboardCheck,
-  Cloud,
-  Flame,
   FolderKanban,
-  GraduationCap,
-  Heart,
-  Inbox,
   Layers,
-  ShieldCheck,
+  MoreHorizontal,
   ShoppingBag,
-  Sparkles,
   Store,
-  Target,
 } from 'lucide-react';
 import { STUDY_SUBJECTS, SUBJECT_BY_ID } from '@/lib/study/curriculum';
 import { combineFlashcards } from '@/lib/study/flashcards';
@@ -35,14 +26,18 @@ import {
 import type {
   HubMarketplaceSummary,
   StudyProgressPayload,
+  StudySubjectId,
 } from '@/lib/study/types';
 import type { Profile } from '@/lib/types';
-import { WiseOwlLogo } from './wise-owl-logo';
 
 function formatShortDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return 'Recent';
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+}
+
+function cleanGreetingName(name: string): string {
+  return name.trim().replace(/\.+$/, '');
 }
 
 export function StudentDashboard({
@@ -63,6 +58,27 @@ export function StudentDashboard({
       ? { ...localStudy, synced: false, migrationRequired: initialStudy.migrationRequired }
       : initialStudy;
 
+  const [openSubjectMenu, setOpenSubjectMenu] = useState<StudySubjectId | null>(null);
+  const subjectsGridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openSubjectMenu) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (subjectsGridRef.current && !subjectsGridRef.current.contains(event.target as Node)) {
+        setOpenSubjectMenu(null);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenSubjectMenu(null);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [openSubjectMenu]);
+
   const allCards = useMemo(() => combineFlashcards(study.customCards), [study.customCards]);
   const reviewMap = useMemo(
     () => new Map(study.reviews.map((r) => [r.card_key, r])),
@@ -78,8 +94,9 @@ export function StudentDashboard({
   const averageQuizScore = totalAttempts
     ? Math.round(study.attempts.reduce((sum, a) => sum + a.percentage, 0) / totalAttempts)
     : null;
-  const averageGrade = averageQuizScore !== null ? gradeBandForPercentage(averageQuizScore) : '—';
+  const averageGrade = averageQuizScore !== null ? gradeBandForPercentage(averageQuizScore) : null;
 
+  const reviewedCount = study.reviews.length;
   const masteredCount = allCards.filter((c) => isCardMastered(reviewMap.get(c.cardKey))).length;
   const dueCount = allCards.filter((c) => isCardDue(reviewMap.get(c.cardKey))).length;
   const streakDays = useMemo(
@@ -89,9 +106,9 @@ export function StudentDashboard({
   const studiedSubjectsCount = readinessList.filter(
     (item) => item.attemptsCount > 0 || item.reviewedCards > 0
   ).length;
+  const hasAnyProgress = totalAttempts > 0 || reviewedCount > 0;
 
-  // Smart recommendation based on actual progress (zero fabricated urgency)
-  const recommendation = useMemo(() => {
+  const focusSuggestion = useMemo(() => {
     const weakestWithAttempt = [...readinessList]
       .filter((r) => r.averageQuizPercent !== null && r.averageQuizPercent < 75)
       .sort((a, b) => (a.averageQuizPercent ?? 100) - (b.averageQuizPercent ?? 100))[0];
@@ -100,13 +117,10 @@ export function StudentDashboard({
       const subject = SUBJECT_BY_ID[weakestWithAttempt.subjectId];
       const focusTopic = weakestWithAttempt.weakTopics[0] ?? subject.topics[0];
       return {
-        eyebrow: 'PRIORITY REVISION FOCUS',
-        title: `Strengthen ${subject.name} — ${focusTopic}`,
-        text: `Your recent ${subject.name} average is ${weakestWithAttempt.averageQuizPercent}%. Walk through mark-scheme steps with OwlAid or drill targeted flashcards before retrying.`,
-        primaryHref: `/owlaid?mode=igcse&subject=${subject.id}&prompt=${encodeURIComponent(`Coach me on ${focusTopic} in ${subject.name} (${subject.syllabusCode}) with mark-scheme points and a worked example.`)}`,
-        primaryLabel: `Study ${subject.shortName} in OwlAid`,
-        secondaryHref: `/quizzes?subject=${subject.id}`,
-        secondaryLabel: `Retake ${subject.shortName} Quiz`,
+        label: 'Focus next',
+        text: `${subject.name} — ${focusTopic} (${weakestWithAttempt.averageQuizPercent}% quiz average)`,
+        href: `/owlaid?mode=igcse&subject=${subject.id}&prompt=${encodeURIComponent(`Help me review ${focusTopic} in ${subject.name} (${subject.syllabusCode}) with mark-scheme points and a worked example.`)}`,
+        cta: `Study with OwlAid`,
       };
     }
 
@@ -114,255 +128,253 @@ export function StudentDashboard({
     if (reviewedDue.length > 0) {
       const subject = SUBJECT_BY_ID[reviewedDue[0].subject_id];
       return {
-        eyebrow: 'SPACED REPETITION DUE',
-        title: `${reviewedDue.length} reviewed flashcard${reviewedDue.length === 1 ? '' : 's'} ready for active recall`,
-        text: `Reviewing cards right when they come due locks Cambridge IGCSE definitions and formulas into long-term memory.`,
-        primaryHref: `/flashcards?subject=${subject.id}&queue=due`,
-        primaryLabel: 'Start Due Review',
-        secondaryHref: '/quizzes?subject=mixed',
-        secondaryLabel: 'Take Mixed Quiz',
+        label: 'Due for review',
+        text: `${reviewedDue.length} reviewed flashcard${reviewedDue.length === 1 ? '' : 's'} ready for recall.`,
+        href: `/flashcards?subject=${subject.id}&queue=due`,
+        cta: 'Review now',
       };
     }
 
-    return {
-      eyebrow: 'RECOMMENDED FIRST STEP',
-      title: 'Start your Cambridge IGCSE readiness check',
-      text: 'Take a scored subject quiz to reveal your grade band and weak topics, then lock in key terms with spaced-repetition flashcards and OwlAid Study Mode.',
-      primaryHref: '/quizzes?subject=biology',
-      primaryLabel: 'Take an IGCSE Quiz',
-      secondaryHref: '/owlaid?mode=igcse',
-      secondaryLabel: 'Open OwlAid Study Mode',
-    };
+    return null;
   }, [readinessList, study.reviews]);
 
   return (
     <div className="hub-dashboard" data-testid="student-dashboard">
-      {/* HERO HEADER */}
-      <section className="hub-hero panel">
-        <div className="hub-hero-copy">
-          <div className="hub-hero-brand">
-            <WiseOwlLogo variant="crest" size={82} framed eager />
-            <div className="hub-hero-brand-meta">
-              <div className="badge-cluster">
-                <span className="hero-kicker">
-                  <span className="tiny-dot" /> WISE OWL HUB 5.0 · WESTGATE
-                </span>
-                {isApproved && study.synced ? (
-                  <span className="pill-subtle hub-sync-pill">
-                    <Cloud size={13} /> Cloud Progress Synced
-                  </span>
-                ) : isApproved ? (
-                  <span className="pill-subtle">
-                    <CheckCircle2 size={13} /> School Member · Local Sync Fallback
-                  </span>
-                ) : (
-                  <span className="pill-subtle">
-                    <BookOpen size={13} /> Local Practice Preview
-                  </span>
-                )}
-              </div>
-
-              <h1>
-                {isApproved && profile
-                  ? `Welcome back, ${profile.display_name}.`
-                  : 'Wise Owl Student Hub.'}
-              </h1>
-            </div>
-          </div>
-          <p>
-            Your unified workspace for Cambridge IGCSE study coaching, scored subject quizzes, spaced-repetition flashcards, and Wise Owl Westgate student projects.
+      {/* WORKSPACE HEADER */}
+      <header className="hub-header">
+        <div className="hub-header-text">
+          <h1>
+            {isApproved && profile
+              ? `Welcome back, ${cleanGreetingName(profile.display_name)}`
+              : 'Student Hub'}
+          </h1>
+          <p className="muted">
+            {isApproved && study.synced
+              ? 'Cambridge IGCSE workspace · Progress synced to your school account'
+              : isApproved
+                ? 'Cambridge IGCSE workspace · Progress saved in this browser'
+                : 'Cambridge IGCSE workspace · Practise freely or sign in to sync across devices'}
           </p>
-
-          <div className="button-row">
-            <Link className="button primary" href="/owlaid?mode=igcse">
-              <BrainCircuit size={17} /> OwlAid IGCSE Study Mode
-            </Link>
-            <Link className="button secondary" href="/quizzes">
-              <ClipboardCheck size={17} /> Start a Quiz
-            </Link>
-            <Link className="button secondary" href="/flashcards">
-              <Layers size={17} /> Review Flashcards
-            </Link>
-          </div>
         </div>
 
-        <aside className="hub-coach-card" aria-label="Recommended next study action">
-          <p className="eyebrow">{recommendation.eyebrow}</p>
-          <h2>{recommendation.title}</h2>
-          <p>{recommendation.text}</p>
-          <div className="button-row">
-            <Link className="button primary small" href={recommendation.primaryHref}>
-              {recommendation.primaryLabel} <ArrowRight size={15} />
-            </Link>
-            <Link className="button secondary small" href={recommendation.secondaryHref}>
-              {recommendation.secondaryLabel}
-            </Link>
-          </div>
-        </aside>
-      </section>
+        <div className="hub-quick-actions">
+          <Link className="button primary" href="/owlaid?mode=igcse">
+            <BrainCircuit size={16} /> Study
+          </Link>
+          <Link className="button secondary" href="/quizzes">
+            <ClipboardCheck size={16} /> Quiz
+          </Link>
+          <Link className="button secondary" href="/flashcards">
+            <Layers size={16} /> Flashcards
+          </Link>
+        </div>
+      </header>
 
-      {/* ACCOUNT STATUS BANNER FOR SIGNED-OUT OR PENDING USERS */}
+      {/* SUBTLE ACCOUNT NOTICE WHEN SIGNED OUT OR PENDING */}
       {!profile && (
-        <div className="inline-notice hub-auth-callout">
-          <ShieldCheck size={20} />
-          <div>
-            <strong>Sign in with your Wise Owl account to sync progress across devices</strong>
-            <p>
-              Practice quizzes and flashcards work immediately in this browser. Sign in with your verified Wise Owl account to persist scores in the cloud, unlock OwlAid AI Study Mode, and browse CampusMarket.
-            </p>
-            <div className="button-row" style={{ marginTop: '0.6rem' }}>
-              <Link className="button primary small" href="/login?next=/hub">
-                Sign In <ArrowRight size={14} />
-              </Link>
-              <Link className="button secondary small" href="/signup">
-                Create Member Account
-              </Link>
-            </div>
+        <div className="hub-subtle-bar" role="note">
+          <span>Sign in with your Wise Owl account to sync study progress, use OwlAid, and browse CampusMarket.</span>
+          <div className="hub-subtle-bar-links">
+            <Link href="/login?next=/hub">Sign in</Link>
+            <Link href="/signup">Create account</Link>
           </div>
         </div>
       )}
 
       {profile && !isApproved && (
-        <div className="inline-notice hub-auth-callout">
-          <ShieldCheck size={20} />
-          <div>
-            <strong>School verification status: {profile.verification_status}</strong>
-            <p>
-              Once a Wise Owl administrator approves your membership, cloud study sync, OwlAid AI tutoring, and CampusMarket browsing unlock automatically.
-            </p>
-            <Link href="/pending-approval">
-              View approval details <ArrowRight size={14} />
-            </Link>
-          </div>
+        <div className="hub-subtle-bar" role="note">
+          <span>
+            Account status: <strong>{profile.verification_status}</strong>. Cloud sync, OwlAid, and CampusMarket unlock once a school administrator approves your account.
+          </span>
+          <Link href="/pending-approval">View status</Link>
         </div>
       )}
 
-      {/* LIVE METRICS STRIP */}
-      <section className="metrics-grid" aria-label="Study and campus metrics" data-testid="hub-metrics">
-        <article className="panel hub-metric-card">
-          <div className="hub-metric-head">
-            <span className="muted-tiny">QUIZ PERFORMANCE</span>
-            <ClipboardCheck size={18} />
+      {/* COMPACT PROGRESS SUMMARY OR CALM GET-STARTED BAR */}
+      {hasAnyProgress ? (
+        <section className="panel hub-summary-strip" aria-label="Study progress summary" data-testid="hub-metrics">
+          <div className="hub-summary-item">
+            <span className="hub-summary-label">Quiz average</span>
+            <strong className="hub-summary-value">
+              {averageQuizScore !== null ? `${averageQuizScore}%` : 'Not started'}
+            </strong>
+            <span className="muted-tiny">
+              {totalAttempts > 0
+                ? `${totalAttempts} scored attempt${totalAttempts === 1 ? '' : 's'}${averageGrade ? ` · Grade ${averageGrade}` : ''}`
+                : 'Complete a quiz to see your average'}
+            </span>
           </div>
-          <strong className="hub-metric-value">
-            {averageQuizScore !== null ? `${averageQuizScore}%` : '0'}
-          </strong>
-          <span className="muted-tiny">
-            {totalAttempts > 0
-              ? `${totalAttempts} scored attempt${totalAttempts === 1 ? '' : 's'} · Avg grade ${averageGrade}`
-              : 'No quiz attempts yet'}
-          </span>
-        </article>
 
-        <article className="panel hub-metric-card">
-          <div className="hub-metric-head">
-            <span className="muted-tiny">FLASHCARD MASTERY</span>
-            <Layers size={18} />
+          <div className="hub-summary-item">
+            <span className="hub-summary-label">Flashcards</span>
+            <strong className="hub-summary-value">
+              {masteredCount} mastered
+            </strong>
+            <span className="muted-tiny">
+              {dueCount} due · {study.customCards.length > 0 ? `${study.customCards.length} custom` : `${allCards.length} total`}
+            </span>
           </div>
-          <strong className="hub-metric-value">
-            {masteredCount} <small>/ {allCards.length}</small>
-          </strong>
-          <span className="muted-tiny">
-            {dueCount} card{dueCount === 1 ? '' : 's'} due · {study.customCards.length} custom
-          </span>
-        </article>
 
-        <article className="panel hub-metric-card">
-          <div className="hub-metric-head">
-            <span className="muted-tiny">STUDY MOMENTUM</span>
-            <Flame size={18} />
+          <div className="hub-summary-item">
+            <span className="hub-summary-label">Active study</span>
+            <strong className="hub-summary-value">
+              {streakDays > 0 ? `${streakDays} day${streakDays === 1 ? '' : 's'}` : 'Active'}
+            </strong>
+            <span className="muted-tiny">
+              {studiedSubjectsCount} of {STUDY_SUBJECTS.length} subjects started
+            </span>
           </div>
-          <strong className="hub-metric-value">
-            {streakDays} <small>day{streakDays === 1 ? '' : 's'}</small>
-          </strong>
-          <span className="muted-tiny">
-            {studiedSubjectsCount} of {STUDY_SUBJECTS.length} IGCSE subjects active
-          </span>
-        </article>
-
-        <article className="panel hub-metric-card">
-          <div className="hub-metric-head">
-            <span className="muted-tiny">CAMPUSMARKET</span>
-            <ShoppingBag size={18} />
+        </section>
+      ) : (
+        <section className="panel hub-get-started" aria-label="Get started" data-testid="hub-metrics">
+          <div>
+            <p className="eyebrow">Get started</p>
+            <h2>Start with a short subject quiz or flashcard review</h2>
+            <p className="muted">
+              Your scores, grade estimates, and revision schedule appear here once you begin.
+            </p>
           </div>
-          <strong className="hub-metric-value">
-            {marketplaceSummary ? marketplaceSummary.activeProductsCount : '—'}
-          </strong>
-          <span className="muted-tiny">
-            {marketplaceSummary
-              ? `${marketplaceSummary.mySavedCount} saved · ${marketplaceSummary.myPendingRequestsCount} active request${marketplaceSummary.myPendingRequestsCount === 1 ? '' : 's'}`
-              : 'Approved school members only'}
-          </span>
-        </article>
-      </section>
+          <div className="button-row">
+            <Link className="button primary small" href="/quizzes?subject=biology">
+              Take first quiz <ArrowRight size={14} />
+            </Link>
+            <Link className="button secondary small" href="/flashcards">
+              Review flashcards
+            </Link>
+          </div>
+        </section>
+      )}
 
-      {/* SUBJECT READINESS MATRIX */}
-      <section className="home-section" aria-labelledby="hub-subjects-heading">
+      {focusSuggestion && (
+        <div className="hub-focus-bar">
+          <div>
+            <span className="hub-focus-tag">{focusSuggestion.label}</span>
+            <span>{focusSuggestion.text}</span>
+          </div>
+          <Link href={focusSuggestion.href} className="text-link">
+            {focusSuggestion.cta} <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
+
+      {/* CLEAN 8-SUBJECT GRID */}
+      <section className="hub-section" aria-labelledby="hub-subjects-heading">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">CAMBRIDGE IGCSE · 8 CORE SUBJECTS</p>
-            <h2 id="hub-subjects-heading">Subject Readiness Matrix</h2>
+            <p className="eyebrow">Your learning</p>
+            <h2 id="hub-subjects-heading">Your subjects</h2>
           </div>
           <Link href="/quizzes?subject=mixed">
-            Mixed IGCSE Challenge <ArrowRight size={16} />
+            Mixed IGCSE quiz <ArrowRight size={15} />
           </Link>
         </div>
 
-        <div className="hub-subjects-grid">
+        <div className="hub-subjects-grid" ref={subjectsGridRef}>
           {STUDY_SUBJECTS.map((subject) => {
             const stat = readinessList.find((item) => item.subjectId === subject.id)!;
+            const started = stat.attemptsCount > 0 || stat.reviewedCards > 0;
+            const isMenuOpen = openSubjectMenu === subject.id;
+            const primaryHref =
+              stat.attemptsCount > 0 && stat.averageQuizPercent !== null && stat.averageQuizPercent < 70
+                ? `/owlaid?mode=igcse&subject=${subject.id}`
+                : `/quizzes?subject=${subject.id}`;
+            const primaryLabel =
+              stat.attemptsCount > 0 && stat.averageQuizPercent !== null && stat.averageQuizPercent < 70
+                ? 'Review topic'
+                : started
+                  ? 'Practise quiz'
+                  : 'Start quiz';
+
             return (
-              <article key={subject.id} className="panel hub-subject-card" data-testid={`subject-card-${subject.id}`}>
+              <article
+                key={subject.id}
+                className="panel hub-subject-card"
+                data-testid={`subject-card-${subject.id}`}
+              >
                 <div className="hub-subject-top">
                   <div>
-                    <span className="pill-subtle">{subject.syllabusCode}</span>
+                    <span className="hub-subject-code">{subject.syllabusCode}</span>
                     <h3>{subject.name}</h3>
                   </div>
-                  <span className={`hub-grade-badge ${stat.latestGrade ? 'has-grade' : ''}`}>
-                    {stat.latestGrade ?? 'New'}
-                  </span>
+                  {stat.latestGrade && (
+                    <span className="hub-grade-badge has-grade" aria-label={`Latest grade ${stat.latestGrade}`}>
+                      {stat.latestGrade}
+                    </span>
+                  )}
                 </div>
 
-                <p className="muted-tiny">{subject.description}</p>
-
-                <div className="hub-progress-row">
-                  <div className="hub-progress-meta">
-                    <span>Readiness</span>
-                    <strong>{stat.readinessPercent}%</strong>
+                {started ? (
+                  <div className="hub-subject-progress">
+                    <p className="hub-subject-status">
+                      {stat.averageQuizPercent !== null
+                        ? `Quiz avg ${stat.averageQuizPercent}%`
+                        : `${stat.reviewedCards}/${stat.totalCards} cards reviewed`}
+                      {stat.averageQuizPercent !== null && stat.masteredCards > 0
+                        ? ` · ${stat.masteredCards}/${stat.totalCards} mastered`
+                        : stat.averageQuizPercent !== null && stat.reviewedCards > 0
+                          ? ` · ${stat.reviewedCards} card${stat.reviewedCards === 1 ? '' : 's'} reviewed`
+                          : ''}
+                    </p>
+                    <div
+                      className="hub-progress-track"
+                      role="progressbar"
+                      aria-valuenow={stat.readinessPercent}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${subject.name} progress`}
+                    >
+                      <div className="hub-progress-fill" style={{ width: `${stat.readinessPercent}%` }} />
+                    </div>
+                    {stat.weakTopics.length > 0 && (
+                      <p className="hub-weak-note">Revise: {stat.weakTopics[0]}</p>
+                    )}
                   </div>
-                  <div className="hub-progress-track" role="progressbar" aria-valuenow={stat.readinessPercent} aria-valuemin={0} aria-valuemax={100} aria-label={`${subject.name} readiness`}>
-                    <div className="hub-progress-fill" style={{ width: `${stat.readinessPercent}%` }} />
-                  </div>
-                </div>
-
-                <div className="hub-subject-stats">
-                  <span>
-                    <Target size={13} />{' '}
-                    {stat.averageQuizPercent !== null
-                      ? `Quiz avg ${stat.averageQuizPercent}% (${stat.attemptsCount})`
-                      : 'No quizzes yet'}
-                  </span>
-                  <span>
-                    <Layers size={13} /> {stat.masteredCards}/{stat.totalCards} cards
-                  </span>
-                </div>
-
-                {stat.weakTopics.length > 0 && (
-                  <div className="hub-weak-topics">
-                    <span>Revise:</span> {stat.weakTopics.join(' · ')}
-                  </div>
+                ) : (
+                  <p className="hub-subject-unstarted">Not started</p>
                 )}
 
-                <div className="hub-subject-actions">
-                  <Link className="button secondary tiny" href={`/owlaid?mode=igcse&subject=${subject.id}`}>
-                    <BrainCircuit size={13} /> Study
+                <div className="hub-subject-footer">
+                  <Link className="button secondary small hub-subject-primary" href={primaryHref}>
+                    {primaryLabel}
                   </Link>
-                  <Link className="button secondary tiny" href={`/quizzes?subject=${subject.id}`}>
-                    <ClipboardCheck size={13} /> Quiz
-                  </Link>
-                  <Link className="button secondary tiny" href={`/flashcards?subject=${subject.id}`}>
-                    <Layers size={13} /> Cards
-                  </Link>
+
+                  <div className="subject-more-wrap">
+                    <button
+                      type="button"
+                      className="icon-button subject-more-btn"
+                      aria-label={`More options for ${subject.name}`}
+                      aria-haspopup="menu"
+                      aria-expanded={isMenuOpen}
+                      onClick={() => setOpenSubjectMenu(isMenuOpen ? null : subject.id)}
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    {isMenuOpen && (
+                      <div className="subject-more-menu" role="menu">
+                        <Link
+                          role="menuitem"
+                          href={`/owlaid?mode=igcse&subject=${subject.id}`}
+                          onClick={() => setOpenSubjectMenu(null)}
+                        >
+                          <BrainCircuit size={14} /> Study in OwlAid
+                        </Link>
+                        <Link
+                          role="menuitem"
+                          href={`/quizzes?subject=${subject.id}`}
+                          onClick={() => setOpenSubjectMenu(null)}
+                        >
+                          <ClipboardCheck size={14} /> Take quiz
+                        </Link>
+                        <Link
+                          role="menuitem"
+                          href={`/flashcards?subject=${subject.id}`}
+                          onClick={() => setOpenSubjectMenu(null)}
+                        >
+                          <Layers size={14} /> Review flashcards
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </article>
             );
@@ -370,32 +382,30 @@ export function StudentDashboard({
         </div>
       </section>
 
-      {/* RECENT ACTIVITY & CAMPUS INTEGRATION */}
-      <section className="home-section hub-lower-grid" aria-label="Recent study history and school integration">
-        <article className="panel hub-activity-panel">
-          <div className="section-heading compact">
+      {/* RECENT QUIZZES — SHOWN ONLY WHEN MEANINGFUL */}
+      {study.attempts.length > 0 && (
+        <section className="hub-section" aria-labelledby="hub-recent-quizzes">
+          <div className="section-heading">
             <div>
-              <p className="eyebrow">REAL SCORING HISTORY</p>
-              <h2>Recent Quiz Attempts</h2>
+              <h2 id="hub-recent-quizzes">Recent quizzes</h2>
             </div>
             <Link href="/quizzes">
-              All Quizzes <ArrowRight size={15} />
+              All quizzes <ArrowRight size={15} />
             </Link>
           </div>
-
-          {study.attempts.length > 0 ? (
+          <div className="panel hub-recent-card">
             <ul className="hub-attempt-list">
-              {study.attempts.slice(0, 6).map((attempt) => {
+              {study.attempts.slice(0, 5).map((attempt) => {
                 const subjectName =
                   attempt.subject_id === 'mixed'
-                    ? 'Mixed IGCSE Challenge'
+                    ? 'Mixed IGCSE Quiz'
                     : SUBJECT_BY_ID[attempt.subject_id]?.name ?? attempt.subject_id;
                 return (
                   <li key={attempt.id} className="hub-attempt-row">
                     <div>
                       <strong>{subjectName}</strong>
                       <span className="muted-tiny">
-                        {attempt.score}/{attempt.total_questions} · {attempt.mode} · {formatShortDate(attempt.created_at)}
+                        {attempt.score}/{attempt.total_questions} · {formatShortDate(attempt.created_at)}
                       </span>
                     </div>
                     <div className="hub-attempt-right">
@@ -406,87 +416,41 @@ export function StudentDashboard({
                 );
               })}
             </ul>
-          ) : (
-            <div className="hub-empty-compact">
-              <Sparkles size={22} />
-              <p>Complete your first IGCSE quiz to see real scores, grade bands, and topic diagnostics here.</p>
-              <Link className="button primary small" href="/quizzes">
-                Start First Quiz <ArrowRight size={14} />
-              </Link>
-            </div>
-          )}
-        </article>
+          </div>
+        </section>
+      )}
 
-        <article className="panel hub-campus-panel">
-          <div className="section-heading compact">
-            <div>
-              <p className="eyebrow">BROADER SCHOOL INTEGRATION</p>
-              <h2>CampusMarket & School Life</h2>
-            </div>
-            <Link href="/marketplace">
-              Open Market <ArrowRight size={15} />
-            </Link>
+      {/* COMPACT SECONDARY SCHOOL LIFE & MARKETPLACE AREA */}
+      <section className="hub-section" aria-labelledby="hub-school-life">
+        <div className="panel hub-school-strip">
+          <div className="hub-school-info">
+            <p className="eyebrow">School life</p>
+            <h2 id="hub-school-life">CampusMarket &amp; projects</h2>
+            <p className="muted">
+              {marketplaceSummary
+                ? `${marketplaceSummary.activeProductsCount} approved product${marketplaceSummary.activeProductsCount === 1 ? '' : 's'} · ${marketplaceSummary.approvedGroupsCount} project team${marketplaceSummary.approvedGroupsCount === 1 ? '' : 's'}${marketplaceSummary.myPendingRequestsCount > 0 ? ` · ${marketplaceSummary.myPendingRequestsCount} open request${marketplaceSummary.myPendingRequestsCount === 1 ? '' : 's'}` : ''}`
+                : 'Explore student-built goods, verified project groups, and school information.'}
+            </p>
           </div>
 
-          <p className="muted">
-            Wise Owl Hub connects academic revision directly with Wise Owl High School Westgate’s student project marketplace and school knowledge base.
-          </p>
-
-          {marketplaceSummary ? (
-            <div className="hub-campus-stats">
-              <div>
-                <ShoppingBag size={16} />
-                <span>
-                  <strong>{marketplaceSummary.activeProductsCount}</strong> approved student products
-                </span>
-              </div>
-              <div>
-                <FolderKanban size={16} />
-                <span>
-                  <strong>{marketplaceSummary.approvedGroupsCount}</strong> verified project groups
-                </span>
-              </div>
-              <div>
-                <Heart size={16} />
-                <span>
-                  <strong>{marketplaceSummary.mySavedCount}</strong> saved shortlist items
-                </span>
-              </div>
-              <div>
-                <Inbox size={16} />
-                <span>
-                  <strong>{marketplaceSummary.myPendingRequestsCount}</strong> open purchase requests
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="hub-campus-stats">
-              <div>
-                <GraduationCap size={16} />
-                <span>Cambridge O-Level / IGCSE & Heritage-Based Curriculum</span>
-              </div>
-              <div>
-                <Award size={16} />
-                <span>Motto: “Going an Extra Mile” · Westgate, Harare</span>
-              </div>
-            </div>
-          )}
-
-          <div className="button-row">
-            <Link className="button primary small" href="/marketplace">
-              <ShoppingBag size={15} /> Browse Marketplace
+          <div className="hub-school-links">
+            <Link className="button secondary small" href="/marketplace">
+              <ShoppingBag size={14} /> Marketplace
             </Link>
             <Link className="button secondary small" href="/projects">
-              <FolderKanban size={15} /> Project Teams
+              <FolderKanban size={14} /> Projects
             </Link>
-            <Link className="button secondary small" href={marketplaceSummary?.isApprovedSeller ? '/seller/dashboard' : '/seller'}>
-              <Store size={15} /> Seller Portal
+            <Link
+              className="button secondary small"
+              href={marketplaceSummary?.isApprovedSeller ? '/seller/dashboard' : '/seller'}
+            >
+              <Store size={14} /> Seller Portal
             </Link>
             <Link className="button secondary small" href="/owlaid">
-              <BookOpen size={15} /> School Info
+              <BookOpen size={14} /> School info
             </Link>
           </div>
-        </article>
+        </div>
       </section>
     </div>
   );

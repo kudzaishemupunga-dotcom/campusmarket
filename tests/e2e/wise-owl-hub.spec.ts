@@ -62,21 +62,29 @@ test('Wise Owl Hub 5.0: Student Dashboard, OwlAid IGCSE Study Mode, Scored Quizz
   // 2. Sign in as approved learner and inspect unified Student Dashboard (/hub)
   await signIn(page, 'hublearner@wiseowl.test');
   await page.goto('/hub');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Welcome back, Nyasha T.');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Welcome back, Nyasha T');
   await expect(page.getByTestId('hub-metrics')).toBeVisible();
   await expect(page.getByTestId('subject-card-biology')).toBeVisible();
+  await expect(page.getByTestId('subject-card-biology')).toContainText('Not started');
   await expect(page.getByTestId('subject-card-mathematics')).toBeVisible();
 
-  // Verify unified navigation exposes Hub, OwlAid, Quizzes, Flashcards, Marketplace
+  // Verify simplified navigation exposes Hub, Study menu (OwlAid, Quizzes, Flashcards), Marketplace, Projects, and Account menu
   const mainNav = page.getByRole('navigation', { name: 'Main navigation' });
   await expect(mainNav.getByRole('link', { name: 'Hub' })).toBeVisible();
-  await expect(mainNav.getByRole('link', { name: 'OwlAid' })).toBeVisible();
-  await expect(mainNav.getByRole('link', { name: 'Quizzes' })).toBeVisible();
-  await expect(mainNav.getByRole('link', { name: 'Flashcards' })).toBeVisible();
   await expect(mainNav.getByRole('link', { name: 'Marketplace' })).toBeVisible();
+  await expect(mainNav.getByRole('link', { name: 'Projects' })).toBeVisible();
 
-  // 3. OwlAid 5.0 IGCSE Study Mode works end-to-end
-  await mainNav.getByRole('link', { name: 'OwlAid' }).click();
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await expect(page.getByRole('menuitem', { name: /Seller Portal/i })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await mainNav.getByRole('button', { name: 'Study' }).click();
+  await expect(mainNav.getByRole('menuitem', { name: /OwlAid/i })).toBeVisible();
+  await expect(mainNav.getByRole('menuitem', { name: /Quizzes/i })).toBeVisible();
+  await expect(mainNav.getByRole('menuitem', { name: /Flashcards/i })).toBeVisible();
+
+  // 3. OwlAid IGCSE Study Mode works end-to-end
+  await mainNav.getByRole('menuitem', { name: /OwlAid/i }).click();
   await expect(page).toHaveURL(/\/owlaid$/);
   await page.getByTestId('owlaid-mode-igcse').click();
   await expect(page.getByTestId('igcse-study-controls')).toBeVisible();
@@ -88,7 +96,8 @@ test('Wise Owl Hub 5.0: Student Dashboard, OwlAid IGCSE Study Mode, Scored Quizz
   await expect(page.getByRole('log')).toContainText(/water potential/i);
 
   // 4. Interactive Subject Quiz with real server-authoritative scoring & cloud persistence
-  await mainNav.getByRole('link', { name: 'Quizzes' }).click();
+  await mainNav.getByRole('button', { name: 'Study' }).click();
+  await mainNav.getByRole('menuitem', { name: /Quizzes/i }).click();
   await expect(page).toHaveURL(/\/quizzes$/);
   await page.getByTestId('quiz-subject-biology').click();
   await page.getByTestId('start-quiz-button').click();
@@ -277,19 +286,20 @@ test('Wise Owl High School Westgate official logo, favicon assets, and browser t
     }
   };
 
-  for (const [route, screenshotName] of [
-    ['/', 'branding-home-1366.png'],
-    ['/hub', 'branding-hub-1366.png'],
-    ['/owlaid', 'branding-owlaid-1366.png'],
-    ['/quizzes', 'branding-quizzes-1366.png'],
-    ['/flashcards', 'branding-flashcards-1366.png'],
-    ['/marketplace', 'branding-marketplace-1366.png'],
-    ['/about', 'branding-about-1366.png'],
+  const afterDir = path.join(SCREENSHOT_DIR, 'after');
+  for (const [route, name, minLogos] of [
+    ['/', 'home', 3],
+    ['/hub', 'hub', 2],
+    ['/owlaid', 'owlaid', 2],
+    ['/quizzes', 'quizzes', 2],
+    ['/flashcards', 'flashcards', 2],
+    ['/marketplace', 'marketplace', 2],
+    ['/about', 'about', 2],
   ] as const) {
     await page.goto(route);
     await page.waitForLoadState('networkidle');
-    await assertLogosHealthy(route, 3); // header + page + footer
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, screenshotName), fullPage: false });
+    await assertLogosHealthy(route, minLogos);
+    await page.screenshot({ path: path.join(afterDir, `${name}-desktop.png`), fullPage: false });
   }
 
   // 3. Check signed-out Auth pages (/login, /signup) branding & title
@@ -298,24 +308,35 @@ test('Wise Owl High School Westgate official logo, favicon assets, and browser t
     await page.goto(route);
     await expect(page).toHaveTitle('Wise Owl Hub | Wise Owl Westgate');
     await page.waitForLoadState('networkidle');
-    await assertLogosHealthy(route, 3); // header + auth story + auth form + footer
+    await assertLogosHealthy(route, 4); // header + auth story + auth form + footer
   }
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
-  await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'branding-login-1366.png'), fullPage: false });
+  await page.screenshot({ path: path.join(afterDir, 'login-desktop.png'), fullPage: false });
 
-  // 4. Mobile 360px & dark mode visual QA snapshots
+  // 4. Mobile 360px AFTER snapshots for all 6 key pages + dark mode
+  await signIn(page, 'hublearner@wiseowl.test');
   await page.setViewportSize({ width: 360, height: 800 });
-  await page.goto('/hub');
-  await page.waitForLoadState('networkidle');
-  await assertLogosHealthy('/hub@360', 3);
-  await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'branding-hub-360.png'), fullPage: false });
+  for (const [route, name] of [
+    ['/', 'home'],
+    ['/hub', 'hub'],
+    ['/owlaid', 'owlaid'],
+    ['/quizzes', 'quizzes'],
+    ['/flashcards', 'flashcards'],
+    ['/marketplace', 'marketplace'],
+  ] as const) {
+    await page.goto(route);
+    await page.waitForLoadState('networkidle');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    expect(overflow, `${route} must not overflow at 360px`).toBe(false);
+    await page.screenshot({ path: path.join(afterDir, `${name}-mobile.png`), fullPage: false });
+  }
 
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto('/hub');
   await page.getByRole('button', { name: 'Switch to dark mode' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.waitForLoadState('networkidle');
-  await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'branding-hub-1366-dark.png'), fullPage: false });
+  await page.screenshot({ path: path.join(afterDir, 'hub-desktop-dark.png'), fullPage: false });
   await page.getByRole('button', { name: 'Switch to light mode' }).click();
 });

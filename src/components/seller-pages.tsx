@@ -34,7 +34,6 @@ import {
 } from '@/lib/permissions';
 import type { SellerGroup } from '@/lib/types';
 import { availabilityLabel, Dialog, EmptyState, money, PageHeading, Status } from './ui';
-import { WiseOwlLogo } from './hub/wise-owl-logo';
 import { ListingActions } from './listing-pages';
 import { useMarket } from './market-app';
 
@@ -66,19 +65,42 @@ export function SellerLandingPage() {
   const approvedSeller = isApprovedSeller(data.profile);
   const myGroups = data.groups.filter((g) => isApprovedGroupMember(data.profile, g));
 
+  const howItWorks = [
+    {
+      step: '01',
+      title: 'Create your project',
+      text: 'Design, build, grow, or craft authentic goods through your Wise Owl school projects.',
+    },
+    {
+      step: '02',
+      title: 'Register individually or as a group',
+      text: 'Set up an individual seller account or collaborative project workspace without sharing passwords.',
+    },
+    {
+      step: '03',
+      title: 'Submit products for review',
+      text: 'Upload real photos, set USD pricing and stock counts, and submit for school approval.',
+    },
+    {
+      step: '04',
+      title: 'Learners discover your work',
+      text: 'Approved school members browse verified student products and project teams.',
+    },
+    {
+      step: '05',
+      title: 'Coordinate safe handovers',
+      text: 'Manage purchase requests privately with automatic stock updates on fulfillment.',
+    },
+  ];
+
   return (
     <div className="seller-landing">
       <section className="seller-hero panel">
         <div className="seller-hero-copy">
-          <div className="seller-hero-brand">
-            <WiseOwlLogo variant="crest" size={76} framed eager />
-            <div>
-              <p className="eyebrow">WISE OWL WESTGATE · SELLER PORTAL</p>
-              <h1>Turn Your School Project Into a Product.</h1>
-            </div>
-          </div>
+          <p className="eyebrow">Seller Portal</p>
+          <h1>Turn your school project into a product.</h1>
           <p>
-            Built for Wise Owl High School Westgate learners creating real goods through Heritage-Based Curriculum projects. Register individually or collaborate as a verified project group—with school supervision at every step.
+            Built for Wise Owl High School Westgate learners sharing real goods created through Heritage-Based Curriculum projects. Register individually or collaborate as a verified project group.
           </p>
           <div className="button-row">
             {approvedMember ? (
@@ -172,6 +194,24 @@ export function SellerLandingPage() {
           </Link>
         </article>
       </section>
+
+      <section className="home-section" aria-labelledby="seller-how-it-works">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">How it works</p>
+            <h2 id="seller-how-it-works">From class project to school marketplace</h2>
+          </div>
+        </div>
+        <div className="steps-grid">
+          {howItWorks.map((item) => (
+            <article className="panel step-card" key={item.step}>
+              <span className="step-number">{item.step}</span>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -188,10 +228,9 @@ export function SellerRegisterPage({ query }: { query: Record<string, string | u
   return (
     <div className="seller-register-wrap">
       <PageHeading
-        eyebrow="SELLER ONBOARDING · WISE OWL WESTGATE"
-        title="Register as a Student Project Seller."
-        description="Showcase real goods produced through your class or collaborative school project. A school administrator must approve membership and seller access before products can be published."
-        showCrest
+        eyebrow="Seller registration"
+        title="Register as a student project seller"
+        description="Showcase real goods from your class or collaborative school project. A school administrator approves membership and seller access before listings publish."
       />
 
       <div className="form-layout">

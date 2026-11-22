@@ -58,48 +58,46 @@ export function AuthPage({
     <div className="auth-layout">
       <div className="auth-story">
         <div className="auth-story-brand">
-          <WiseOwlLogo variant="crest" size={92} framed eager />
-          <span className="hero-kicker">
-            <ShieldCheck size={16} /> WISE OWL HIGH SCHOOL WESTGATE · HARARE
-          </span>
+          <WiseOwlLogo variant="crest" size={86} framed eager />
+          <span className="auth-school-kicker">Wise Owl High School Westgate · Harare</span>
         </div>
         <h1>
           Going an Extra Mile.
           <br />
-          <span>Student Innovation</span> in Practice.
+          <span>Learn, build, and share.</span>
         </h1>
         <p>
-          Wise Owl Hub &amp; CampusMarket unite Wise Owl Westgate learners around Cambridge IGCSE revision tools, OwlAid tutoring, and authentic School-Based Project products.
+          Access Cambridge IGCSE revision tools, OwlAid tutoring, and authentic student-built projects with your school account.
         </p>
 
         <div className="auth-pillars">
           <div>
-            <Sparkles size={18} />
-            <span>
-              <strong>Real student projects</strong>
-              <small>Design, STEM, agriculture, crafts & enterprise</small>
-            </span>
+            <Sparkles size={17} />
+            <div className="auth-pillar-copy">
+              <strong>IGCSE study tools</strong>
+              <small>OwlAid tutoring, subject quizzes, and spaced flashcards</small>
+            </div>
           </div>
           <div>
-            <Users size={18} />
-            <span>
-              <strong>Individual & group sellers</strong>
+            <Users size={17} />
+            <div className="auth-pillar-copy">
+              <strong>Individual &amp; group sellers</strong>
               <small>Role-based workspaces with zero shared passwords</small>
-            </span>
+            </div>
           </div>
           <div>
-            <ShieldCheck size={18} />
-            <span>
+            <ShieldCheck size={17} />
+            <div className="auth-pillar-copy">
               <strong>School-supervised safety</strong>
               <small>Verified accounts and protected student privacy</small>
-            </span>
+            </div>
           </div>
         </div>
       </div>
 
       <section className="auth-form-panel">
         <Link className="back-link" href="/">
-          <ArrowLeft size={15} /> Back to CampusMarket
+          <ArrowLeft size={15} /> Back to Wise Owl Hub
         </Link>
         <div className="auth-form-inner">
           <div className="auth-form-brand">
@@ -268,9 +266,9 @@ export function AccountPage({
     return (
       <div className="approval-page">
         <div className="approval-crest">
-          <WiseOwlLogo variant="crest" size={112} framed eager />
+          <WiseOwlLogo variant="crest" size={98} framed eager />
         </div>
-        <p className="eyebrow">WISE OWL WESTGATE · MEMBERSHIP VERIFICATION</p>
+        <p className="eyebrow">Membership verification</p>
         <h1>
           {status === 'approved'
             ? 'Your school membership is approved.'
@@ -338,10 +336,9 @@ export function AccountPage({
   return (
     <>
       <PageHeading
-        eyebrow="WISE OWL MEMBER ACCOUNT"
-        title={`Hello, ${data.profile?.display_name || 'Member'}.`}
-        description="Track your supervised purchase requests, saved project products, and account preferences."
-        showCrest
+        eyebrow="Account"
+        title={`Hello, ${data.profile?.display_name || 'Member'}`}
+        description="Track your purchase requests, saved products, and account preferences."
       >
         <div className="button-row">
           <Link className="button secondary" href="/seller/dashboard">
@@ -533,10 +530,9 @@ export function AboutPage() {
   return (
     <div className="about-page">
       <PageHeading
-        eyebrow="PROJECT INFORMATION · WISE OWL HIGH SCHOOL WESTGATE"
+        eyebrow="About Wise Owl Hub"
         title="Where Classroom Projects Become Real Enterprise."
-        description="CampusMarket is a dedicated digital platform built for learners at Wise Owl High School Westgate in Harare, Zimbabwe to showcase and coordinate supervised sales of products developed through School-Based Projects."
-        showCrest
+        description="Wise Owl Hub brings together Cambridge IGCSE study tools and CampusMarket for learners at Wise Owl High School Westgate in Harare, Zimbabwe."
       />
 
       <div className="about-grid">
@@ -582,14 +578,13 @@ export function PolicyPage({ path }: { path: string }) {
   return (
     <div className="policy-page">
       <PageHeading
-        eyebrow="WISE OWL WESTGATE · GOVERNANCE & SAFETY"
+        eyebrow="Governance & safety"
         title={privacy ? 'Student Privacy Notice.' : 'School Project Marketplace Rules.'}
         description={
           privacy
-            ? 'How CampusMarket protects learner privacy at Wise Owl High School Westgate.'
+            ? 'How Wise Owl Hub and CampusMarket protect learner privacy at Wise Owl High School Westgate.'
             : 'Shared standards for showcasing and exchanging real school-project products.'
         }
-        showCrest
       />
       <div className="inline-notice">
         <ShieldCheck size={21} />

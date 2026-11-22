@@ -520,8 +520,10 @@ test('OwlAid 4.0: navigation link, signed-out 401 guard, signed-in school facts,
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto('/');
 
-  // Shared navigation includes OwlAid link
-  const navOwlAid = page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'OwlAid' });
+  // Shared navigation exposes OwlAid inside the simplified Study menu
+  const mainNav = page.getByRole('navigation', { name: 'Main navigation' });
+  await mainNav.getByRole('button', { name: 'Study' }).click();
+  const navOwlAid = mainNav.getByRole('menuitem', { name: /OwlAid/i });
   await expect(navOwlAid).toBeVisible();
   await navOwlAid.click();
   await expect(page).toHaveURL(/\/owlaid$/);

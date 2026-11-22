@@ -14,7 +14,6 @@ import {
   Flag,
   Layers,
   RotateCcw,
-  Sparkles,
   Trophy,
   XCircle,
 } from 'lucide-react';
@@ -35,7 +34,6 @@ import type {
   StudyProgressPayload,
 } from '@/lib/study/types';
 import type { Profile } from '@/lib/types';
-import { WiseOwlLogo } from './wise-owl-logo';
 
 function formatTimer(seconds: number): string {
   const safe = Math.max(0, seconds);
@@ -345,22 +343,19 @@ export function QuizStudio({
     return (
       <div className="study-studio" data-testid="quiz-studio">
         <div className="page-heading">
-          <div className="page-heading-lead">
-            <WiseOwlLogo variant="crest" size={68} framed eager className="page-heading-crest" />
-            <div className="page-heading-copy">
-              <p className="eyebrow">WISE OWL HUB 5.0 · CAMBRIDGE IGCSE ASSESSMENTS</p>
-              <h1>Interactive Subject Quizzes.</h1>
-              <p>
-                Test your mastery across 8 Cambridge IGCSE subjects with server-verified scoring, grade band estimates (A*–U), topic diagnostics, and instant OwlAid explanations.
-              </p>
-            </div>
+          <div>
+            <p className="eyebrow">Practice &amp; assessment</p>
+            <h1>IGCSE Quizzes</h1>
+            <p>
+              Choose a subject to practise with immediate scoring, grade estimates, and examiner explanations.
+            </p>
           </div>
           <div className="heading-actions">
-            <Link className="button secondary" href="/hub">
-              <ArrowLeft size={16} /> Student Hub
+            <Link className="button secondary small" href="/hub">
+              <ArrowLeft size={15} /> Student Hub
             </Link>
-            <Link className="button secondary" href="/flashcards">
-              <Layers size={16} /> Flashcards
+            <Link className="button secondary small" href="/flashcards">
+              <Layers size={15} /> Flashcards
             </Link>
           </div>
         </div>
@@ -381,14 +376,16 @@ export function QuizStudio({
                 aria-pressed={active}
               >
                 <div className="quiz-subject-tile-top">
-                  <span className="pill-subtle">{subject.syllabusCode}</span>
+                  <span className="hub-subject-code">{subject.syllabusCode}</span>
                   {stat?.best !== null && stat?.best !== undefined && (
                     <span className="quiz-best-pill">Best {stat.best}%</span>
                   )}
                 </div>
                 <strong>{subject.name}</strong>
                 <span className="muted-tiny">
-                  {count} IGCSE questions · {stat?.attempts ?? 0} attempt{stat?.attempts === 1 ? '' : 's'}
+                  {stat && stat.attempts > 0
+                    ? `${stat.attempts} attempt${stat.attempts === 1 ? '' : 's'} · ${count} questions`
+                    : `${count} questions · Not started`}
                 </span>
               </button>
             );
@@ -402,28 +399,28 @@ export function QuizStudio({
             aria-pressed={selectedSubject === 'mixed'}
           >
             <div className="quiz-subject-tile-top">
-              <span className="pill-subtle">ALL 8 SUBJECTS</span>
+              <span className="hub-subject-code">All 8 subjects</span>
               {subjectStats.get('mixed')?.best !== null && subjectStats.get('mixed')?.best !== undefined && (
                 <span className="quiz-best-pill">Best {subjectStats.get('mixed')?.best}%</span>
               )}
             </div>
-            <strong>Mixed IGCSE Challenge</strong>
-            <span className="muted-tiny">Cross-subject readiness diagnostic ({QUIZ_QUESTIONS.length} bank)</span>
+            <strong>Mixed IGCSE Quiz</strong>
+            <span className="muted-tiny">Cross-subject review ({QUIZ_QUESTIONS.length} questions)</span>
           </button>
         </section>
 
-        {/* QUIZ CONFIGURATION PANEL */}
+        {/* QUIZ SETTINGS PANEL */}
         <section className="panel quiz-config-panel" aria-label="Quiz settings">
           <div className="quiz-config-header">
             <div>
-              <p className="eyebrow">QUIZ CONFIGURATION</p>
+              <p className="eyebrow">Quiz settings</p>
               <h2>
                 {activeSubjectMeta
                   ? `${activeSubjectMeta.name} (${activeSubjectMeta.syllabusCode})`
-                  : 'Mixed Cambridge IGCSE Readiness Challenge'}
+                  : 'Mixed IGCSE Quiz'}
               </h2>
               <p className="muted">
-                {availableQuestions.length} question{availableQuestions.length === 1 ? '' : 's'} ready with Cambridge mark-scheme explanations.
+                {availableQuestions.length} question{availableQuestions.length === 1 ? '' : 's'} ready.
               </p>
             </div>
             <button
@@ -433,67 +430,66 @@ export function QuizStudio({
               disabled={availableQuestions.length === 0}
               data-testid="start-quiz-button"
             >
-              <ClipboardCheck size={18} /> Start Quiz ({availableQuestions.length} Qs)
+              <ClipboardCheck size={17} /> Start Quiz ({availableQuestions.length} Qs)
             </button>
           </div>
 
           <div className="quiz-config-grid">
             <label>
-              <span>Cambridge Tier</span>
+              <span>Tier</span>
               <select value={tier} onChange={(e) => setTier(e.target.value as QuizTierFilter)}>
-                <option value="all">All Tiers (Core + Extended)</option>
-                <option value="core">Core Only</option>
-                <option value="extended">Extended Only</option>
+                <option value="all">Core &amp; Extended</option>
+                <option value="core">Core only</option>
+                <option value="extended">Extended only</option>
               </select>
             </label>
 
             <label>
-              <span>Feedback Style</span>
+              <span>Feedback</span>
               <select value={mode} onChange={(e) => setMode(e.target.value as QuizMode)}>
-                <option value="practice">Practice (Instant mark-scheme feedback)</option>
-                <option value="exam">Exam Simulation (Grade at end)</option>
+                <option value="practice">Practice (instant feedback)</option>
+                <option value="exam">Exam mode (grade at end)</option>
               </select>
             </label>
 
             <label>
-              <span>Quiz Length</span>
+              <span>Length</span>
               <select value={questionLimit} onChange={(e) => setQuestionLimit(e.target.value as '5' | 'all')}>
-                <option value="5">Quick Sprint (5 Questions)</option>
-                <option value="all">Full Subject Set ({selectedSubject === 'mixed' ? 'All 64' : 'All 8'})</option>
+                <option value="5">5 questions</option>
+                <option value="all">Full set ({selectedSubject === 'mixed' ? 'All 64' : 'All 8'})</option>
               </select>
             </label>
 
             <label>
-              <span>Timer Mode</span>
+              <span>Timer</span>
               <select value={timed ? 'timed' : 'untimed'} onChange={(e) => setTimed(e.target.value === 'timed')}>
-                <option value="untimed">Untimed Study</option>
-                <option value="timed">Timed Exam (60s per question)</option>
+                <option value="untimed">Untimed</option>
+                <option value="timed">Timed (60s per question)</option>
               </select>
             </label>
           </div>
         </section>
 
-        {/* RECENT ATTEMPTS HISTORY */}
-        <section className="home-section">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">YOUR SCORING RECORD</p>
-              <h2>Recent Quiz Attempts</h2>
+        {/* RECENT ATTEMPTS HISTORY — SHOWN ONLY WHEN MEANINGFUL */}
+        {study.attempts.length > 0 && (
+          <section className="home-section">
+            <div className="section-heading">
+              <div>
+                <h2>Recent quizzes</h2>
+              </div>
+              {isApproved && study.synced ? (
+                <span className="pill-subtle hub-sync-pill"><Cloud size={13} /> Synced</span>
+              ) : (
+                <span className="pill-subtle">Saved locally</span>
+              )}
             </div>
-            {isApproved && study.synced ? (
-              <span className="pill-subtle hub-sync-pill"><Cloud size={13} /> Cloud Synced</span>
-            ) : (
-              <span className="pill-subtle">Saved locally in browser</span>
-            )}
-          </div>
 
-          {study.attempts.length > 0 ? (
             <div className="panel">
               <ul className="hub-attempt-list" data-testid="quiz-history-list">
                 {study.attempts.slice(0, 10).map((attempt) => {
                   const label =
                     attempt.subject_id === 'mixed'
-                      ? 'Mixed IGCSE Challenge'
+                      ? 'Mixed IGCSE Quiz'
                       : SUBJECT_BY_ID[attempt.subject_id]?.name ?? attempt.subject_id;
                   return (
                     <li key={attempt.id} className="hub-attempt-row">
@@ -512,13 +508,8 @@ export function QuizStudio({
                 })}
               </ul>
             </div>
-          ) : (
-            <div className="panel hub-empty-compact">
-              <Sparkles size={22} />
-              <p>No scored quizzes yet. Pick a subject above and start your first Cambridge IGCSE quiz.</p>
-            </div>
-          )}
-        </section>
+          </section>
+        )}
       </div>
     );
   }
@@ -728,7 +719,7 @@ export function QuizStudio({
               <span>IGCSE Est.</span>
             </div>
             <div>
-              <p className="eyebrow">QUIZ SCORE REPORT</p>
+              <p className="eyebrow">Score report</p>
               <h1 data-testid="quiz-score-heading">
                 {lastGrading.score} / {lastGrading.totalQuestions} ({lastGrading.percentage}%)
               </h1>
@@ -764,12 +755,12 @@ export function QuizStudio({
           </div>
         </section>
 
-        {/* TOPIC DIAGNOSTIC BREAKDOWN */}
+        {/* TOPIC BREAKDOWN */}
         <section className="panel quiz-topics-panel">
           <div className="section-heading compact">
             <div>
-              <p className="eyebrow">TOPIC MASTERY BREAKDOWN</p>
-              <h2>Strengths &amp; Revision Priorities</h2>
+              <p className="eyebrow">Topic breakdown</p>
+              <h2>Strengths &amp; revision priorities</h2>
             </div>
           </div>
           <div className="quiz-topic-bars">
@@ -799,8 +790,8 @@ export function QuizStudio({
         <section className="home-section">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">MARK-SCHEME REVIEW</p>
-              <h2>Detailed Answer Explanations</h2>
+              <p className="eyebrow">Answer review</p>
+              <h2>Explanations</h2>
             </div>
           </div>
           <div className="quiz-review-list">

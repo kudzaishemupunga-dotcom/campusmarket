@@ -37,7 +37,6 @@ import type {
   StudySubjectId,
 } from '@/lib/study/types';
 import type { Profile } from '@/lib/types';
-import { WiseOwlLogo } from './wise-owl-logo';
 
 type QueueFilter = 'due' | 'all' | 'practice' | 'mastered' | 'custom';
 
@@ -398,41 +397,38 @@ export function FlashcardStudio({
   return (
     <div className="study-studio" data-testid="flashcard-studio">
       <div className="page-heading">
-        <div className="page-heading-lead">
-          <WiseOwlLogo variant="crest" size={68} framed eager className="page-heading-crest" />
-          <div className="page-heading-copy">
-            <p className="eyebrow">WISE OWL HUB 5.0 · SPACED REPETITION STUDIO</p>
-            <h1>IGCSE Flashcards &amp; Active Recall.</h1>
-            <p>
-              Flip curated Cambridge IGCSE cards or author your own. Rate your recall honestly—spaced repetition schedules each card right before you forget it.
-            </p>
-          </div>
+        <div>
+          <p className="eyebrow">Revision</p>
+          <h1>Flashcards</h1>
+          <p>
+            Review key IGCSE definitions and formulas with spaced repetition, or add your own cards.
+          </p>
         </div>
         <div className="heading-actions">
           <button
             type="button"
-            className="button primary"
+            className="button primary small"
             onClick={() => setCreateOpen(true)}
             data-testid="open-create-card-button"
           >
-            <Plus size={16} /> Create Flashcard
+            <Plus size={15} /> Create flashcard
           </button>
-          <Link className="button secondary" href="/hub">
-            <ArrowLeft size={16} /> Student Hub
+          <Link className="button secondary small" href="/hub">
+            <ArrowLeft size={15} /> Student Hub
           </Link>
         </div>
       </div>
 
-      {/* SUMMARY STATS STRIP */}
+      {/* QUIET STATUS LINE */}
       <div className="flashcard-stats-strip">
-        <span className="pill-subtle">{allCards.length} total cards</span>
-        <span className="pill-subtle">{totalDue} due for review</span>
-        <span className="pill-subtle">{totalMastered} mastered (Box 4–5)</span>
-        <span className="pill-subtle">{study.customCards.length} custom cards</span>
+        <span className="muted-tiny">
+          <strong>{totalDue}</strong> due · <strong>{totalMastered}</strong> of {allCards.length} mastered
+          {study.customCards.length > 0 ? ` · ${study.customCards.length} custom` : ''}
+        </span>
         {isApproved && study.synced ? (
-          <span className="pill-subtle hub-sync-pill"><Cloud size={13} /> Cloud Synced</span>
+          <span className="pill-subtle hub-sync-pill"><Cloud size={12} /> Synced</span>
         ) : (
-          <span className="pill-subtle">Local browser sync</span>
+          <span className="muted-tiny">Saved locally</span>
         )}
       </div>
 
@@ -535,7 +531,7 @@ export function FlashcardStudio({
 
             <div className="flashcard-body">
               <span className="flashcard-side-label">
-                {flipped ? 'CAMBRIDGE EXAM ANSWER' : 'ACTIVE RECALL PROMPT'}
+                {flipped ? 'Answer' : 'Prompt'}
               </span>
 
               {!flipped ? (
@@ -728,8 +724,8 @@ export function FlashcardStudio({
         <section className="home-section" aria-labelledby="custom-cards-heading">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">YOUR PERSONAL STUDY DECK</p>
-              <h2 id="custom-cards-heading">Custom Flashcards ({study.customCards.length})</h2>
+              <p className="eyebrow">Personal deck</p>
+              <h2 id="custom-cards-heading">Custom flashcards ({study.customCards.length})</h2>
             </div>
           </div>
           <div className="custom-cards-grid" data-testid="custom-flashcards-list">
