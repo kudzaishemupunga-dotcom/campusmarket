@@ -251,7 +251,6 @@ export async function POST(request: NextRequest) {
           duration_seconds: input.durationSeconds,
           weak_topics: grading.weakTopics,
         })
-        
 .select(
   'id,subject_id,tier,mode,score,total_questions,percentage,grade_band,duration_seconds,weak_topics,created_at'
 )
